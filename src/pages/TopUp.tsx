@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Search, CheckCircle, Globe, Hash, ChevronRight, Loader2 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { GAMES, addOrder, generateOrderId, checkGameUsername, type Game, type GamePackage } from '@/lib/store';
+import { GAMES, addOrder, generateOrderId, checkGameUsername, type Game, type GamePackage, type CheckResult } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
 import { sendTelegramNotification } from '@/lib/telegram';
 import diamondIcon from '@/assets/diamond-icon.png';
