@@ -14,7 +14,134 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      game_packages: {
+        Row: {
+          category: string
+          disabled: boolean | null
+          game_id: string
+          id: string
+          image_url: string | null
+          name: string
+          price: number
+          sort_order: number | null
+          tag: string | null
+        }
+        Insert: {
+          category?: string
+          disabled?: boolean | null
+          game_id: string
+          id: string
+          image_url?: string | null
+          name: string
+          price: number
+          sort_order?: number | null
+          tag?: string | null
+        }
+        Update: {
+          category?: string
+          disabled?: boolean | null
+          game_id?: string
+          id?: string
+          image_url?: string | null
+          name?: string
+          price?: number
+          sort_order?: number | null
+          tag?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "game_packages_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      games: {
+        Row: {
+          banner_url: string | null
+          created_at: string | null
+          hot: boolean | null
+          icon_url: string | null
+          id: string
+          id_fields: Json
+          name: string
+          out_of_stock: boolean | null
+          publisher: string
+          region: string | null
+          sort_order: number | null
+        }
+        Insert: {
+          banner_url?: string | null
+          created_at?: string | null
+          hot?: boolean | null
+          icon_url?: string | null
+          id: string
+          id_fields?: Json
+          name: string
+          out_of_stock?: boolean | null
+          publisher: string
+          region?: string | null
+          sort_order?: number | null
+        }
+        Update: {
+          banner_url?: string | null
+          created_at?: string | null
+          hot?: boolean | null
+          icon_url?: string | null
+          id?: string
+          id_fields?: Json
+          name?: string
+          out_of_stock?: boolean | null
+          publisher?: string
+          region?: string | null
+          sort_order?: number | null
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          created_at: string | null
+          game_id: string
+          game_name: string
+          id: string
+          package_id: string
+          package_name: string
+          player_ids: Json
+          player_name: string | null
+          price: number
+          status: string
+          transaction_hash: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          game_id: string
+          game_name: string
+          id: string
+          package_id: string
+          package_name: string
+          player_ids?: Json
+          player_name?: string | null
+          price: number
+          status?: string
+          transaction_hash?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          game_id?: string
+          game_name?: string
+          id?: string
+          package_id?: string
+          package_name?: string
+          player_ids?: Json
+          player_name?: string | null
+          price?: number
+          status?: string
+          transaction_hash?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

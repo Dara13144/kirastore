@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from 'react';
 import { Clock, CheckCircle, XCircle, Copy, Loader2, ArrowLeft } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { getOrders, updateOrderStatus, type Order } from '@/lib/store';
+import { getOrderById, updateOrderStatus, type Order } from '@/lib/store';
 import { generateKHQRCode, generateTransactionMd5, checkPaymentWithMd5 } from '@/lib/payment';
 import { useToast } from '@/hooks/use-toast';
 import { sendTelegramNotification } from '@/lib/telegram';
@@ -17,6 +17,7 @@ const Payment = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(true);
   const [timeLeft, setTimeLeft] = useState(EXPIRY_MINUTES * 60);
   const [status, setStatus] = useState<Order['status']>('pending');
   const [qrCode, setQrCode] = useState<string>('');
@@ -25,17 +26,21 @@ const Payment = () => {
   const [lastCheck, setLastCheck] = useState<string>('');
 
   useEffect(() => {
-    const orders = getOrders();
-    const found = orders.find(o => o.id === orderId);
-    if (!found) { navigate('/'); return; }
-    setOrder(found);
-    setStatus(found.status);
-    if (found.status !== 'pending') return;
-    const created = new Date(found.createdAt).getTime();
-    const expiresAt = created + EXPIRY_MINUTES * 60 * 1000;
-    const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
-    setTimeLeft(remaining);
-    if (remaining <= 0) { updateOrderStatus(found.id, 'expired'); setStatus('expired'); }
+    const loadOrder = async () => {
+      if (!orderId) { navigate('/'); return; }
+      const found = await getOrderById(orderId);
+      if (!found) { navigate('/'); return; }
+      setOrder(found);
+      setStatus(found.status);
+      setLoading(false);
+      if (found.status !== 'pending') return;
+      const created = new Date(found.createdAt).getTime();
+      const expiresAt = created + EXPIRY_MINUTES * 60 * 1000;
+      const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      if (remaining <= 0) { await updateOrderStatus(found.id, 'expired'); setStatus('expired'); }
+    };
+    loadOrder();
   }, [orderId, navigate]);
 
   useEffect(() => {
@@ -63,11 +68,10 @@ const Payment = () => {
       const result = await checkPaymentWithMd5(order.id, order.price, hash);
       setLastCheck(new Date().toLocaleTimeString());
       if (result.paid) {
-        updateOrderStatus(order.id, 'completed', result.txHash);
+        await updateOrderStatus(order.id, 'completed', result.txHash);
         setStatus('completed');
         toast({ title: '✅ ការទូទាត់បានបញ្ជាក់!', description: `បានផ្ទៀងផ្ទាត់ប្រតិបត្តិការ។ Hash: ${result.txHash}` });
         
-        // Send Telegram notification for confirmed payment
         sendTelegramNotification('payment_confirmed', {
           id: order.id,
           gameName: order.gameName,
@@ -92,6 +96,17 @@ const Payment = () => {
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
   const copyAccount = () => { navigator.clipboard.writeText(BAKONG_ACCOUNT); toast({ title: 'បានចម្លង!', description: 'គណនី Bakong បានចម្លង' }); };
   const copyOrderId = () => { if (!order) return; navigator.clipboard.writeText(order.id); toast({ title: 'បានចម្លង!', description: 'Order ID បានចម្លង' }); };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-12 text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
 
   if (!order) return null;
   const md5Hash = generateTransactionMd5(order.id, order.price);

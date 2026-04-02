@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Search, CheckCircle, Globe, Hash, ChevronRight, Loader2 } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { GAMES, addOrder, generateOrderId, type Game, type GamePackage, type CheckResult } from '@/lib/store';
+import { fetchGameById, addOrder, generateOrderId, type Game, type GamePackage, type CheckResult } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
 import { sendTelegramNotification } from '@/lib/telegram';
 import { supabase } from '@/integrations/supabase/client';
@@ -14,10 +15,11 @@ const TopUp = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Check custom games from admin
-  const customGames = localStorage.getItem('kira_custom_games');
-  const allGames = customGames ? JSON.parse(customGames) as Game[] : GAMES;
-  const game = allGames.find(g => g.id === gameId);
+  const { data: game, isLoading: gameLoading } = useQuery({
+    queryKey: ['game', gameId],
+    queryFn: () => fetchGameById(gameId!),
+    enabled: !!gameId,
+  });
 
   const [playerIds, setPlayerIds] = useState<Record<string, string>>({});
   const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
@@ -26,6 +28,17 @@ const TopUp = () => {
   const [checkProgress, setCheckProgress] = useState(0);
   const [selectedPkg, setSelectedPkg] = useState<GamePackage | null>(null);
   const [agreedTerms, setAgreedTerms] = useState(false);
+
+  if (gameLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-12 text-center">
+          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+        </div>
+      </div>
+    );
+  }
 
   if (!game) {
     return (
@@ -52,7 +65,6 @@ const TopUp = () => {
     setCheckResult(null);
     setCheckProgress(0);
 
-    // Progress animation
     const steps = [25, 50, 75];
     for (const p of steps) {
       setCheckProgress(p);
@@ -67,9 +79,7 @@ const TopUp = () => {
 
       setCheckProgress(100);
 
-      if (error) {
-        throw new Error(error.message || 'Verification failed');
-      }
+      if (error) throw new Error(error.message || 'Verification failed');
 
       if (data?.found) {
         if (data.zoneMatch === false) {
@@ -91,7 +101,7 @@ const TopUp = () => {
     setCheckLoading(false);
   };
 
-  const handleOrder = () => {
+  const handleOrder = async () => {
     if (!selectedPkg) {
       toast({ title: 'សូមជ្រើសរើសកញ្ចប់', variant: 'destructive' });
       return;
@@ -118,9 +128,8 @@ const TopUp = () => {
       createdAt: new Date().toISOString(),
     };
 
-    addOrder(order);
-    
-    // Send Telegram notification for new order
+    await addOrder(order);
+
     sendTelegramNotification('new_order', {
       id: order.id,
       gameName: order.gameName,
@@ -140,19 +149,16 @@ const TopUp = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      {/* Back */}
       <div className="container mx-auto px-4 pt-4 animate-fade-in">
         <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" /> ត្រលប់ទៅទំព័រដើម
         </Link>
       </div>
 
-      {/* Banner */}
       <div className="container mx-auto px-4 pt-3 animate-scale-in">
         <img src={game.banner} alt={game.name} className="w-full rounded-2xl object-cover shadow-green" width={1024} height={512} />
       </div>
 
-      {/* Game Info */}
       <div className="container mx-auto px-4 pt-4 animate-slide-up" style={{ animationDelay: '100ms' }}>
         <div className="flex items-center gap-4 rounded-2xl bg-card p-4 shadow-sm">
           <img src={game.icon} alt="" className="h-16 w-16 rounded-xl animate-float" width={64} height={64} />
@@ -204,7 +210,6 @@ const TopUp = () => {
             )}
           </button>
 
-          {/* Progress bar during check */}
           {checkLoading && (
             <div className="mt-3 animate-fade-in">
               <div className="flex items-center justify-between mb-1">
@@ -212,15 +217,11 @@ const TopUp = () => {
                 <span className="text-xs font-bold text-primary-foreground">{checkProgress}%</span>
               </div>
               <div className="h-2 w-full overflow-hidden rounded-full bg-primary-foreground/20">
-                <div
-                  className="h-full bg-primary-foreground transition-all duration-300 ease-out"
-                  style={{ width: `${checkProgress}%` }}
-                />
+                <div className="h-full bg-primary-foreground transition-all duration-300 ease-out" style={{ width: `${checkProgress}%` }} />
               </div>
             </div>
           )}
 
-          {/* Success result with details */}
           {checkResult && (
             <div className="mt-3 rounded-xl bg-primary-foreground/90 p-4 animate-scale-in space-y-2">
               <p className="text-sm text-success font-bold flex items-center gap-1">
@@ -347,7 +348,6 @@ const TopUp = () => {
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-foreground font-heading text-sm font-bold text-primary">3</span>
             <h3 className="font-heading text-base font-bold text-primary-foreground">វិធីបង់ប្រាក់</h3>
           </div>
-
           <div className="flex items-center justify-between rounded-xl border-2 border-primary bg-card p-4 transition-all hover:shadow-green">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 flex-col items-center justify-center rounded-lg bg-accent">
@@ -380,20 +380,26 @@ const TopUp = () => {
 
       {/* Total & Order */}
       <div className="container mx-auto px-4 py-4 animate-slide-up" style={{ animationDelay: '600ms' }}>
-        <div className="flex items-center justify-between rounded-2xl bg-card p-4 shadow-sm">
-          <div>
-            <p className="text-xs font-bold uppercase text-muted-foreground">តម្លៃសរុប</p>
-            <p className="font-heading text-2xl font-bold text-foreground">
-              ${selectedPkg ? selectedPkg.price.toFixed(2) : '0.00'}
-            </p>
+        {selectedPkg && (
+          <div className="mb-4 rounded-2xl bg-card p-4 shadow-sm animate-scale-in">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">កញ្ចប់:</span>
+              <span className="font-bold text-foreground">{selectedPkg.name}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">តម្លៃ:</span>
+              <span className="font-heading text-lg font-bold text-primary">$ {selectedPkg.price.toFixed(2)}</span>
+            </div>
           </div>
-          <button
-            onClick={handleOrder}
-            className="flex items-center gap-2 rounded-xl bg-gradient-green px-8 py-3 font-heading text-sm font-bold text-primary-foreground shadow-green transition-all hover:scale-105 active:scale-95"
-          >
-            បញ្ជាទិញ <ChevronRight className="h-4 w-4" />
-          </button>
-        </div>
+        )}
+        <button
+          onClick={handleOrder}
+          disabled={!selectedPkg || !mainId || !agreedTerms}
+          className="w-full rounded-xl bg-gradient-green py-4 font-heading text-sm font-bold text-primary-foreground shadow-green transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100"
+        >
+          <ChevronRight className="mr-1 inline h-4 w-4" />
+          បញ្ជាទិញឥឡូវនេះ
+        </button>
       </div>
 
       <Footer />

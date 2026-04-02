@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
-import { Shield, CheckCircle, XCircle, Clock, RefreshCw, LogOut, Package, Settings, Plus, Trash2, Image, Edit3, Save, Upload, Send, Power, PowerOff, Eye, EyeOff } from 'lucide-react';
-import { getOrders, updateOrderStatus, GAMES, type Order, type Game, type GamePackage } from '@/lib/store';
+import { Shield, CheckCircle, XCircle, Clock, RefreshCw, LogOut, Package, Settings, Plus, Trash2, Image, Edit3, Save, Upload, Send, Power, PowerOff, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { fetchGamesWithPackages, adminApiCall, type Order, type Game, type GamePackage } from '@/lib/store';
 import { getTelegramChatId, setTelegramChatId, sendTelegramNotification } from '@/lib/telegram';
+import { supabase } from '@/integrations/supabase/client';
 
 const ADMIN_EMAIL = 'iqbalahmed88600@gmail.com';
 const ADMIN_PASS = 'kira2024';
@@ -27,6 +28,7 @@ const Admin = () => {
   const [editingGameId, setEditingGameId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editPublisher, setEditPublisher] = useState('');
+  const [loading, setLoading] = useState(false);
   const iconInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
   const pkgImageInputRef = useRef<HTMLInputElement>(null);
@@ -37,15 +39,18 @@ const Admin = () => {
     const session = localStorage.getItem('kira_admin_session');
     if (session === ADMIN_EMAIL) {
       setAuthed(true);
-      setOrders(getOrders());
+      const auth = localStorage.getItem('kira_admin_auth');
+      if (!auth) localStorage.setItem('kira_admin_auth', btoa(`${ADMIN_EMAIL}:${ADMIN_PASS}`));
+      loadOrders();
       loadGames();
     }
   }, []);
 
-  const loadGames = () => {
-    const custom = localStorage.getItem('kira_custom_games');
-    if (custom) setGames(JSON.parse(custom));
-    else setGames([...GAMES]);
+  const loadGames = async () => {
+    setLoading(true);
+    const data = await fetchGamesWithPackages();
+    setGames(data);
+    setLoading(false);
   };
 
   const login = () => {
@@ -54,20 +59,58 @@ const Admin = () => {
     if (pass !== ADMIN_PASS) { setLoginError('ពាក្យសម្ងាត់មិនត្រឹមត្រូវ។'); return; }
     setAuthed(true);
     localStorage.setItem('kira_admin_session', ADMIN_EMAIL);
-    setOrders(getOrders());
+    localStorage.setItem('kira_admin_auth', btoa(`${ADMIN_EMAIL}:${ADMIN_PASS}`));
+    loadOrders();
     loadGames();
   };
 
   const logout = () => {
     setAuthed(false);
     localStorage.removeItem('kira_admin_session');
+    localStorage.removeItem('kira_admin_auth');
     setEmail(''); setPass('');
   };
 
-  const loadOrders = () => setOrders(getOrders());
+  const loadOrders = async () => {
+    try {
+      const data = await adminApiCall('get_orders');
+      if (Array.isArray(data)) {
+        setOrders(data.map((d: any) => ({
+          id: d.id,
+          gameId: d.game_id,
+          gameName: d.game_name,
+          playerIds: d.player_ids || {},
+          playerName: d.player_name || undefined,
+          packageId: d.package_id,
+          packageName: d.package_name,
+          price: Number(d.price),
+          status: d.status,
+          createdAt: d.created_at,
+          transactionHash: d.transaction_hash || undefined,
+        })));
+      }
+    } catch (err) {
+      console.error('Failed to load orders:', err);
+      // Fallback: direct query
+      const { data } = await supabase.from('orders').select('*').order('created_at', { ascending: false });
+      if (data) {
+        setOrders(data.map((d: any) => ({
+          id: d.id, gameId: d.game_id, gameName: d.game_name,
+          playerIds: d.player_ids || {}, playerName: d.player_name || undefined,
+          packageId: d.package_id, packageName: d.package_name,
+          price: Number(d.price), status: d.status, createdAt: d.created_at,
+          transactionHash: d.transaction_hash || undefined,
+        })));
+      }
+    }
+  };
 
-  const handleStatusChange = (orderId: string, status: Order['status']) => {
-    updateOrderStatus(orderId, status);
+  const handleStatusChange = async (orderId: string, status: Order['status']) => {
+    try {
+      await adminApiCall('update_order_status', { id: orderId, status });
+    } catch {
+      await supabase.from('orders').update({ status }).eq('id', orderId);
+    }
     loadOrders();
   };
 
@@ -79,33 +122,47 @@ const Admin = () => {
     revenue: orders.filter(o => o.status === 'completed').reduce((s, o) => s + o.price, 0),
   };
 
-  const saveGames = (updatedGames: Game[]) => {
-    setGames(updatedGames);
-    localStorage.setItem('kira_custom_games', JSON.stringify(updatedGames));
+  const updateGameField = async (gameId: string, field: string, value: any) => {
+    const dbField = field === 'outOfStock' ? 'out_of_stock' : field === 'iconUrl' ? 'icon_url' : field === 'bannerUrl' ? 'banner_url' : field;
+    try {
+      await adminApiCall('update_game', { id: gameId, [dbField]: value });
+    } catch (err) {
+      console.error('Update game failed:', err);
+    }
+    // Optimistic update
+    setGames(prev => prev.map(g => g.id === gameId ? { ...g, [field]: value } : g));
   };
 
-  const updateGameField = (gameId: string, field: keyof Game, value: any) => {
-    const updated = games.map(g => g.id === gameId ? { ...g, [field]: value } : g);
-    saveGames(updated);
-  };
-
-  const updatePackage = (gameId: string, pkgId: string, field: keyof GamePackage, value: any) => {
-    const updated = games.map(g => {
+  const updatePackage = async (gameId: string, pkgId: string, field: string, value: any) => {
+    const dbField = field === 'image' ? 'image_url' : field;
+    try {
+      await adminApiCall('update_package', { id: pkgId, [dbField]: value });
+    } catch (err) {
+      console.error('Update package failed:', err);
+    }
+    setGames(prev => prev.map(g => {
       if (g.id !== gameId) return g;
       return { ...g, packages: g.packages.map(p => p.id === pkgId ? { ...p, [field]: value } : p) };
-    });
-    saveGames(updated);
+    }));
   };
 
-  const addPackage = (gameId: string) => {
-    const newPkg: GamePackage = { id: `pkg-${Date.now()}`, name: 'កញ្ចប់ថ្មី', price: 0.99, category: 'normal' };
-    const updated = games.map(g => g.id !== gameId ? g : { ...g, packages: [...g.packages, newPkg] });
-    saveGames(updated);
+  const addPackage = async (gameId: string) => {
+    const newPkg = { id: `pkg-${Date.now()}`, game_id: gameId, name: 'កញ្ចប់ថ្មី', price: 0.99, category: 'normal', sort_order: 999 };
+    try {
+      await adminApiCall('add_package', newPkg);
+    } catch (err) {
+      console.error('Add package failed:', err);
+    }
+    loadGames();
   };
 
-  const deletePackage = (gameId: string, pkgId: string) => {
-    const updated = games.map(g => g.id !== gameId ? g : { ...g, packages: g.packages.filter(p => p.id !== pkgId) });
-    saveGames(updated);
+  const deletePackage = async (gameId: string, pkgId: string) => {
+    try {
+      await adminApiCall('delete_package', { id: pkgId });
+    } catch (err) {
+      console.error('Delete package failed:', err);
+    }
+    setGames(prev => prev.map(g => g.id !== gameId ? g : { ...g, packages: g.packages.filter(p => p.id !== pkgId) }));
   };
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,7 +171,9 @@ const Admin = () => {
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
-      updateGameField(uploadTarget.gameId, uploadTarget.field, dataUrl);
+      const dbField = uploadTarget.field === 'icon' ? 'icon_url' : 'banner_url';
+      adminApiCall('update_game', { id: uploadTarget.gameId, [dbField]: dataUrl }).catch(console.error);
+      setGames(prev => prev.map(g => g.id === uploadTarget.gameId ? { ...g, [uploadTarget.field === 'icon' ? 'icon' : 'banner']: dataUrl } : g));
       setUploadTarget(null);
     };
     reader.readAsDataURL(file);
@@ -128,18 +187,23 @@ const Admin = () => {
     reader.onload = () => {
       const dataUrl = reader.result as string;
       updatePackage(pkgUploadTarget.gameId, pkgUploadTarget.pkgId, 'image', dataUrl);
+      adminApiCall('update_package', { id: pkgUploadTarget.pkgId, image_url: dataUrl }).catch(console.error);
       setPkgUploadTarget(null);
     };
     reader.readAsDataURL(file);
     e.target.value = '';
   };
 
-  const toggleAllPackages = (gameId: string, disabled: boolean) => {
-    const updated = games.map(g => {
+  const toggleAllPackages = async (gameId: string, disabled: boolean) => {
+    try {
+      await adminApiCall('toggle_all_packages', { game_id: gameId, disabled });
+    } catch (err) {
+      console.error('Toggle all failed:', err);
+    }
+    setGames(prev => prev.map(g => {
       if (g.id !== gameId) return g;
       return { ...g, packages: g.packages.map(p => ({ ...p, disabled })) };
-    });
-    saveGames(updated);
+    }));
   };
 
   const startEdit = (game: Game) => {
@@ -148,9 +212,13 @@ const Admin = () => {
     setEditPublisher(game.publisher);
   };
 
-  const saveEdit = (gameId: string) => {
-    const updated = games.map(g => g.id === gameId ? { ...g, name: editName, publisher: editPublisher } : g);
-    saveGames(updated);
+  const saveEdit = async (gameId: string) => {
+    try {
+      await adminApiCall('update_game', { id: gameId, name: editName, publisher: editPublisher });
+    } catch (err) {
+      console.error('Save edit failed:', err);
+    }
+    setGames(prev => prev.map(g => g.id === gameId ? { ...g, name: editName, publisher: editPublisher } : g));
     setEditingGameId(null);
   };
 
@@ -202,7 +270,7 @@ const Admin = () => {
         <div className="container mx-auto flex items-center justify-between">
           <h1 className="font-heading text-lg font-bold text-primary-foreground">KIRA STORE Admin</h1>
           <div className="flex items-center gap-2">
-            <button onClick={loadOrders} className="rounded-lg bg-primary-foreground/15 p-2 text-primary-foreground hover:bg-primary-foreground/25 transition-colors">
+            <button onClick={() => { if (tab === 'orders') loadOrders(); else loadGames(); }} className="rounded-lg bg-primary-foreground/15 p-2 text-primary-foreground hover:bg-primary-foreground/25 transition-colors">
               <RefreshCw className="h-4 w-4" />
             </button>
             <button onClick={logout} className="rounded-lg bg-primary-foreground/15 p-2 text-primary-foreground hover:bg-primary-foreground/25 transition-colors">
@@ -261,7 +329,7 @@ const Admin = () => {
               ].map(f => (
                 <button
                   key={f.key}
-                  onClick={() => { setFilter(f.key); loadOrders(); }}
+                  onClick={() => setFilter(f.key)}
                   className={`whitespace-nowrap rounded-full px-4 py-2 text-xs font-medium transition-all ${
                     filter === f.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                   }`}
@@ -312,19 +380,18 @@ const Admin = () => {
         {/* Products Tab */}
         {tab === 'products' && (
           <div className="space-y-4 animate-fade-in">
-            <h2 className="font-heading text-lg font-bold text-foreground">គ្រប់គ្រងផលិតផល</h2>
+            <div className="flex items-center justify-between">
+              <h2 className="font-heading text-lg font-bold text-foreground">គ្រប់គ្រងផលិតផល</h2>
+              {loading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+            </div>
             {games.map((game, gi) => (
               <div key={game.id} className="rounded-2xl border-2 border-border bg-card p-4 animate-fade-in" style={{ animationDelay: `${gi * 80}ms` }}>
                 {/* Game header with image management */}
                 <div className="mb-3 flex items-start gap-3">
-                  {/* Icon with upload */}
                   <div className="relative group">
                     <img src={game.icon} alt={game.name} className="h-14 w-14 rounded-xl object-contain" />
                     <button
-                      onClick={() => {
-                        setUploadTarget({ gameId: game.id, field: 'icon' });
-                        iconInputRef.current?.click();
-                      }}
+                      onClick={() => { setUploadTarget({ gameId: game.id, field: 'icon' }); iconInputRef.current?.click(); }}
                       className="absolute inset-0 flex items-center justify-center rounded-xl bg-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity"
                     >
                       <Upload className="h-5 w-5 text-primary-foreground" />
@@ -371,10 +438,7 @@ const Admin = () => {
                 <div className="relative group mb-3 overflow-hidden rounded-xl">
                   <img src={game.banner} alt="Banner" className="w-full h-24 object-cover rounded-xl" />
                   <button
-                    onClick={() => {
-                      setUploadTarget({ gameId: game.id, field: 'banner' });
-                      bannerInputRef.current?.click();
-                    }}
+                    onClick={() => { setUploadTarget({ gameId: game.id, field: 'banner' }); bannerInputRef.current?.click(); }}
                     className="absolute inset-0 flex items-center justify-center gap-2 rounded-xl bg-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity"
                   >
                     <Image className="h-5 w-5 text-primary-foreground" />
@@ -401,7 +465,6 @@ const Admin = () => {
                   {game.packages.map(pkg => (
                     <div key={pkg.id} className={`rounded-lg border p-2 transition-all ${pkg.disabled ? 'bg-muted/50 border-border opacity-60' : 'bg-muted border-transparent'}`}>
                       <div className="flex items-center gap-2">
-                        {/* Package image */}
                         <div className="relative group shrink-0">
                           {pkg.image ? (
                             <img src={pkg.image} alt="" className="h-9 w-9 rounded-lg object-cover" />
@@ -411,10 +474,7 @@ const Admin = () => {
                             </div>
                           )}
                           <button
-                            onClick={() => {
-                              setPkgUploadTarget({ gameId: game.id, pkgId: pkg.id });
-                              pkgImageInputRef.current?.click();
-                            }}
+                            onClick={() => { setPkgUploadTarget({ gameId: game.id, pkgId: pkg.id }); pkgImageInputRef.current?.click(); }}
                             className="absolute inset-0 flex items-center justify-center rounded-lg bg-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity"
                           >
                             <Upload className="h-3 w-3 text-primary-foreground" />
@@ -430,10 +490,9 @@ const Admin = () => {
                           <option value="normal">ធម្មតា</option>
                           <option value="best-seller">លក់ដាច់</option>
                         </select>
-                        <input value={pkg.tag || ''} onChange={e => updatePackage(game.id, pkg.id, 'tag', e.target.value || undefined)}
+                        <input value={pkg.tag || ''} onChange={e => updatePackage(game.id, pkg.id, 'tag', e.target.value || null)}
                           placeholder="Tag"
                           className="w-14 rounded bg-card px-2 py-1 text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
-                        {/* Toggle disable */}
                         <button
                           onClick={() => updatePackage(game.id, pkg.id, 'disabled', !pkg.disabled)}
                           className={`rounded p-1 transition-colors ${pkg.disabled ? 'text-destructive hover:bg-destructive/10' : 'text-success hover:bg-success/10'}`}
@@ -495,6 +554,7 @@ const Admin = () => {
                   { label: 'ផ្ទៀងផ្ទាត់ MD5', status: 'សកម្ម' },
                   { label: 'ពិនិត្យការទូទាត់ស្វ័យប្រវត្តិ', status: 'រៀងរាល់ 2 នាទី' },
                   { label: 'ប្រព័ន្ធពិនិត្យ ID', status: 'សកម្ម' },
+                  { label: 'មូលដ្ឋានទិន្នន័យ', status: 'សកម្ម (Cloud)' },
                 ].map(item => (
                   <div key={item.label} className="flex items-center justify-between">
                     <span className="text-muted-foreground">{item.label}</span>
@@ -503,13 +563,6 @@ const Admin = () => {
                 ))}
               </div>
             </div>
-
-            <button
-              onClick={() => { localStorage.removeItem('kira_custom_games'); loadGames(); }}
-              className="w-full rounded-xl bg-destructive/10 py-3 text-sm font-medium text-destructive hover:bg-destructive/20 transition-colors"
-            >
-              កំណត់ផលិតផលឡើងវិញទៅលំនាំដើម
-            </button>
           </div>
         )}
       </div>
