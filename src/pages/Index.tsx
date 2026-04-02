@@ -2,6 +2,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import GameCard from '@/components/GameCard';
 import { GAMES } from '@/lib/store';
+import heroBanner from '@/assets/hero-banner.jpg';
 
 const Index = () => {
   return (
@@ -9,15 +10,8 @@ const Index = () => {
       <Navbar />
 
       {/* Hero Banner */}
-      <div className="bg-gradient-green px-4 py-8 animate-slide-down">
-        <div className="container mx-auto text-center">
-          <h1 className="font-heading text-2xl font-bold text-primary-foreground animate-fade-in">
-            CHOOSE SPECIAL GAMES
-          </h1>
-          <p className="mt-2 text-sm text-primary-foreground/80 animate-fade-in" style={{ animationDelay: '200ms' }}>
-            • Quality • Safety • Affordable price
-          </p>
-        </div>
+      <div className="animate-slide-down">
+        <img src={heroBanner} alt="KIRA STORE - Diamond Top Up" className="w-full h-auto" width={1920} height={800} />
       </div>
 
       <div className="container mx-auto px-4 py-6">
