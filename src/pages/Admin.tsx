@@ -165,32 +165,37 @@ const Admin = () => {
     setGames(prev => prev.map(g => g.id !== gameId ? g : { ...g, packages: g.packages.filter(p => p.id !== pkgId) }));
   };
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const uploadToStorage = async (file: File, path: string): Promise<string | null> => {
+    const ext = file.name.split('.').pop() || 'png';
+    const filePath = `${path}/${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from('product-images').upload(filePath, file, { upsert: true });
+    if (error) { console.error('Upload failed:', error); return null; }
+    const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(filePath);
+    return urlData.publicUrl;
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!uploadTarget || !e.target.files?.[0]) return;
     const file = e.target.files[0];
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
+    const url = await uploadToStorage(file, `games/${uploadTarget.gameId}`);
+    if (url) {
       const dbField = uploadTarget.field === 'icon' ? 'icon_url' : 'banner_url';
-      adminApiCall('update_game', { id: uploadTarget.gameId, [dbField]: dataUrl }).catch(console.error);
-      setGames(prev => prev.map(g => g.id === uploadTarget.gameId ? { ...g, [uploadTarget.field === 'icon' ? 'icon' : 'banner']: dataUrl } : g));
-      setUploadTarget(null);
-    };
-    reader.readAsDataURL(file);
+      adminApiCall('update_game', { id: uploadTarget.gameId, [dbField]: url }).catch(console.error);
+      setGames(prev => prev.map(g => g.id === uploadTarget.gameId ? { ...g, [uploadTarget.field === 'icon' ? 'icon' : 'banner']: url } : g));
+    }
+    setUploadTarget(null);
     e.target.value = '';
   };
 
-  const handlePkgImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePkgImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!pkgUploadTarget || !e.target.files?.[0]) return;
     const file = e.target.files[0];
-    const reader = new FileReader();
-    reader.onload = () => {
-      const dataUrl = reader.result as string;
-      updatePackage(pkgUploadTarget.gameId, pkgUploadTarget.pkgId, 'image', dataUrl);
-      adminApiCall('update_package', { id: pkgUploadTarget.pkgId, image_url: dataUrl }).catch(console.error);
-      setPkgUploadTarget(null);
-    };
-    reader.readAsDataURL(file);
+    const url = await uploadToStorage(file, `packages/${pkgUploadTarget.gameId}`);
+    if (url) {
+      updatePackage(pkgUploadTarget.gameId, pkgUploadTarget.pkgId, 'image', url);
+      adminApiCall('update_package', { id: pkgUploadTarget.pkgId, image_url: url }).catch(console.error);
+    }
+    setPkgUploadTarget(null);
     e.target.value = '';
   };
 
