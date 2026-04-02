@@ -19,9 +19,10 @@ const TopUp = () => {
   const game = allGames.find(g => g.id === gameId);
 
   const [playerIds, setPlayerIds] = useState<Record<string, string>>({});
-  const [checkedName, setCheckedName] = useState<string | null>(null);
+  const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
   const [checkLoading, setCheckLoading] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
+  const [checkProgress, setCheckProgress] = useState(0);
   const [selectedPkg, setSelectedPkg] = useState<GamePackage | null>(null);
   const [agreedTerms, setAgreedTerms] = useState(false);
 
