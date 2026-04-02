@@ -1,9 +1,39 @@
+import { supabase } from '@/integrations/supabase/client';
 import mlbbIcon from '@/assets/mlbb-icon.png';
 import freefireIcon from '@/assets/freefire-icon.png';
 import hokIcon from '@/assets/hok-icon.png';
 import magicchessIcon from '@/assets/magicchess-icon.png';
 import mlbbBanner from '@/assets/mlbb-banner.jpg';
 import freefireBanner from '@/assets/freefire-banner.jpg';
+
+// Default asset mappings by game ID prefix
+const DEFAULT_ICONS: Record<string, string> = {
+  'mlbb': mlbbIcon,
+  'ff': freefireIcon,
+  'hok': hokIcon,
+  'magic': magicchessIcon,
+};
+
+const DEFAULT_BANNERS: Record<string, string> = {
+  'mlbb': mlbbBanner,
+  'ff': freefireBanner,
+  'hok': mlbbBanner,
+  'magic': mlbbBanner,
+};
+
+export function getDefaultIcon(gameId: string): string {
+  for (const [prefix, icon] of Object.entries(DEFAULT_ICONS)) {
+    if (gameId.startsWith(prefix)) return icon;
+  }
+  return mlbbIcon;
+}
+
+export function getDefaultBanner(gameId: string): string {
+  for (const [prefix, banner] of Object.entries(DEFAULT_BANNERS)) {
+    if (gameId.startsWith(prefix)) return banner;
+  }
+  return mlbbBanner;
+}
 
 export interface Game {
   id: string;
@@ -42,245 +72,6 @@ export interface Order {
   transactionHash?: string;
 }
 
-// Mock username database for ID checking (supports zone verification)
-export interface MockUser {
-  username: string;
-  zoneId?: string;
-  level?: number;
-  server?: string;
-}
-
-export const MOCK_USERNAMES: Record<string, Record<string, MockUser>> = {
-  'mlbb-kh': {
-    '58647857': { username: 'ShadowHunter', zoneId: '56744', level: 45, server: 'Cambodia-1' },
-    '12345678': { username: 'DragonKing', zoneId: '12001', level: 67, server: 'Cambodia-2' },
-    '99887766': { username: 'MageMaster', zoneId: '56744', level: 32, server: 'Cambodia-1' },
-    '11223344': { username: 'WarriorQueen', zoneId: '23456', level: 55, server: 'Cambodia-3' },
-    '55667788': { username: 'NinjaStrike', zoneId: '56744', level: 78, server: 'Cambodia-1' },
-  },
-  'mlbb-ph': {
-    '10001001': { username: 'PhilGamer', zoneId: '30001', level: 40, server: 'Philippines-1' },
-    '10001002': { username: 'ManilaKing', zoneId: '30002', level: 52, server: 'Philippines-2' },
-  },
-  'mlbb-id': {
-    '20001001': { username: 'IndoHero', zoneId: '40001', level: 60, server: 'Indonesia-1' },
-    '20001002': { username: 'JakartaWarrior', zoneId: '40002', level: 38, server: 'Indonesia-2' },
-  },
-  'ff-kh': {
-    '1234567890': { username: 'FireKhmer', level: 55, server: 'Garena-KH' },
-    '9876543210': { username: 'BattleRoyal', level: 42, server: 'Garena-KH' },
-    '1111222233': { username: 'StealthNinja', level: 30, server: 'Garena-KH' },
-  },
-  'ff-id': {
-    '3000100100': { username: 'IndoFire', level: 48, server: 'Garena-ID' },
-  },
-  'ff-vn': {
-    '4000100100': { username: 'VietFighter', level: 35, server: 'Garena-VN' },
-  },
-  'ff-tw': {
-    '5000100100': { username: 'TaiwanFlame', level: 29, server: 'Garena-TW' },
-  },
-  'magic-chess': {
-    '6000100100': { username: 'ChessMaster', level: 20, server: 'Global' },
-  },
-};
-
-export const GAMES: Game[] = [
-  {
-    id: 'mlbb-kh',
-    name: 'MOBILE LEGENDS | KHMER',
-    publisher: 'Moonton',
-    icon: mlbbIcon,
-    banner: mlbbBanner,
-    region: '🇰🇭',
-    hot: true,
-    idFields: [
-      { label: 'USER ID', placeholder: '58647857', key: 'userId' },
-      { label: 'ZONE ID', placeholder: '56744', key: 'zoneId' },
-    ],
-    packages: [
-      { id: 'mlkh-1', name: '150x2', price: 2.38, category: 'best-seller', tag: 'First Recharge' },
-      { id: 'mlkh-2', name: '50x2', price: 0.91, category: 'best-seller', tag: 'First Recharge' },
-      { id: 'mlkh-3', name: '250x2', price: 3.79, category: 'best-seller', tag: 'First Recharge' },
-      { id: 'mlkh-4', name: '500x2', price: 7.60, category: 'best-seller', tag: 'First Recharge' },
-      { id: 'mlkh-5', name: '172+wkp', price: 4.05, category: 'best-seller' },
-      { id: 'mlkh-6', name: '257+wkp', price: 5.07, category: 'best-seller', tag: 'Full Ticket' },
-      { id: 'mlkh-7', name: 'Weekly Elite Bundle', price: 0.92, category: 'best-seller' },
-      { id: 'mlkh-8', name: 'Monthly Epic Bundle', price: 3.99, category: 'best-seller' },
-      { id: 'mlkh-9', name: '11 Diamonds', price: 0.25, category: 'normal' },
-      { id: 'mlkh-10', name: '22 Diamonds', price: 0.49, category: 'normal' },
-      { id: 'mlkh-11', name: '55 Diamonds', price: 0.92, category: 'normal', tag: 'Try' },
-      { id: 'mlkh-12', name: '86 Diamonds', price: 1.29, category: 'normal' },
-      { id: 'mlkh-13', name: '172 Diamonds', price: 2.53, category: 'normal' },
-      { id: 'mlkh-14', name: '257 Diamonds', price: 3.79, category: 'normal' },
-      { id: 'mlkh-15', name: '344 Diamonds', price: 5.06, category: 'normal' },
-      { id: 'mlkh-16', name: '429 Diamonds', price: 6.32, category: 'normal' },
-      { id: 'mlkh-17', name: '514 Diamonds', price: 7.59, category: 'normal' },
-      { id: 'mlkh-18', name: '706 Diamonds', price: 10.11, category: 'normal' },
-    ],
-  },
-  {
-    id: 'mlbb-ph',
-    name: 'MOBILE LEGENDS | PHILIPPINES',
-    publisher: 'Moonton',
-    icon: mlbbIcon,
-    banner: mlbbBanner,
-    region: '🇵🇭',
-    idFields: [
-      { label: 'USER ID', placeholder: '58647857', key: 'userId' },
-      { label: 'ZONE ID', placeholder: '56744', key: 'zoneId' },
-    ],
-    packages: [
-      { id: 'mlph-1', name: '56 Diamonds', price: 0.99, category: 'normal' },
-      { id: 'mlph-2', name: '112 Diamonds', price: 1.99, category: 'normal' },
-      { id: 'mlph-3', name: '224 Diamonds', price: 3.99, category: 'normal' },
-    ],
-  },
-  {
-    id: 'mlbb-id',
-    name: 'MOBILE LEGENDS | INDONESIA',
-    publisher: 'Moonton',
-    icon: mlbbIcon,
-    banner: mlbbBanner,
-    region: '🇮🇩',
-    idFields: [
-      { label: 'USER ID', placeholder: '58647857', key: 'userId' },
-      { label: 'ZONE ID', placeholder: '56744', key: 'zoneId' },
-    ],
-    packages: [
-      { id: 'mlid-1', name: '86 Diamonds', price: 1.29, category: 'normal' },
-      { id: 'mlid-2', name: '172 Diamonds', price: 2.53, category: 'normal' },
-      { id: 'mlid-3', name: '257 Diamonds', price: 3.79, category: 'normal' },
-    ],
-  },
-  {
-    id: 'ff-kh',
-    name: 'FREE FIRE | KHMER',
-    publisher: 'Garena',
-    icon: freefireIcon,
-    banner: freefireBanner,
-    region: '🇰🇭',
-    hot: true,
-    idFields: [
-      { label: 'PLAYER ID', placeholder: '1234567890', key: 'playerId' },
-    ],
-    packages: [
-      { id: 'ffkh-1', name: 'Evo3D', price: 0.82, category: 'best-seller' },
-      { id: 'ffkh-2', name: 'Evo7D', price: 0.97, category: 'best-seller' },
-      { id: 'ffkh-3', name: 'Evo30D', price: 2.49, category: 'best-seller' },
-      { id: 'ffkh-4', name: 'WeeklyLite', price: 0.49, category: 'best-seller', tag: 'Get 20💎' },
-      { id: 'ffkh-5', name: 'Good luck', price: 0.57, category: 'best-seller', tag: 'One day, by chance.' },
-      { id: 'ffkh-6', name: 'lvp6', price: 0.42, category: 'best-seller' },
-      { id: 'ffkh-7', name: 'lvp10', price: 0.79, category: 'best-seller' },
-      { id: 'ffkh-8', name: 'lvp15', price: 0.79, category: 'best-seller' },
-      { id: 'ffkh-9', name: '25 Diamonds', price: 0.29, category: 'normal', tag: 'Try' },
-      { id: 'ffkh-10', name: '100 Diamonds', price: 0.95, category: 'normal' },
-      { id: 'ffkh-11', name: '310 Diamonds', price: 2.85, category: 'normal' },
-      { id: 'ffkh-12', name: '520 Diamonds', price: 4.75, category: 'normal' },
-      { id: 'ffkh-13', name: '1060 Diamonds', price: 9.50, category: 'normal' },
-    ],
-  },
-  {
-    id: 'ff-id',
-    name: 'FREE FIRE | INDONESIA',
-    publisher: 'Garena',
-    icon: freefireIcon,
-    banner: freefireBanner,
-    region: '🇮🇩',
-    idFields: [
-      { label: 'PLAYER ID', placeholder: '1234567890', key: 'playerId' },
-    ],
-    packages: [
-      { id: 'ffid-1', name: '100 Diamonds', price: 0.99, category: 'normal' },
-      { id: 'ffid-2', name: '310 Diamonds', price: 2.99, category: 'normal' },
-    ],
-  },
-  {
-    id: 'ff-vn',
-    name: 'FREE FIRE | VIETNAM',
-    publisher: 'Garena',
-    icon: freefireIcon,
-    banner: freefireBanner,
-    region: '🇻🇳',
-    idFields: [
-      { label: 'PLAYER ID', placeholder: '1234567890', key: 'playerId' },
-    ],
-    packages: [
-      { id: 'ffvn-1', name: '100 Diamonds', price: 0.99, category: 'normal' },
-      { id: 'ffvn-2', name: '310 Diamonds', price: 2.99, category: 'normal' },
-    ],
-  },
-  {
-    id: 'ff-tw',
-    name: 'FREE FIRE | TAIWAN',
-    publisher: 'Garena',
-    icon: freefireIcon,
-    banner: freefireBanner,
-    region: '🇹🇼',
-    idFields: [
-      { label: 'PLAYER ID', placeholder: '1234567890', key: 'playerId' },
-    ],
-    packages: [
-      { id: 'fftw-1', name: '100 Diamonds', price: 0.99, category: 'normal' },
-    ],
-  },
-  {
-    id: 'magic-chess',
-    name: 'MAGIC CHESS GOGO',
-    publisher: 'Moonton',
-    icon: magicchessIcon,
-    banner: mlbbBanner,
-    region: '',
-    idFields: [
-      { label: 'USER ID', placeholder: '58647857', key: 'userId' },
-    ],
-    packages: [
-      { id: 'mc-1', name: '60 Diamonds', price: 0.99, category: 'normal' },
-      { id: 'mc-2', name: '180 Diamonds', price: 2.99, category: 'normal' },
-    ],
-  },
-  {
-    id: 'hok',
-    name: 'HONOR OF KINGS',
-    publisher: 'TiMi Studio',
-    icon: hokIcon,
-    banner: mlbbBanner,
-    region: '',
-    outOfStock: true,
-    idFields: [
-      { label: 'USER ID', placeholder: '12345678', key: 'userId' },
-    ],
-    packages: [],
-  },
-];
-
-const ORDERS_KEY = 'kira_store_orders';
-
-export function getOrders(): Order[] {
-  const raw = localStorage.getItem(ORDERS_KEY);
-  return raw ? JSON.parse(raw) : [];
-}
-
-export function addOrder(order: Order): void {
-  const orders = getOrders();
-  orders.unshift(order);
-  localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
-}
-
-export function updateOrderStatus(orderId: string, status: Order['status'], txHash?: string): void {
-  const orders = getOrders();
-  const idx = orders.findIndex(o => o.id === orderId);
-  if (idx >= 0) {
-    orders[idx].status = status;
-    if (txHash) orders[idx].transactionHash = txHash;
-    localStorage.setItem(ORDERS_KEY, JSON.stringify(orders));
-  }
-}
-
-export function generateOrderId(): string {
-  return 'KS-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
-}
-
 export interface CheckResult {
   found: boolean;
   username: string;
@@ -289,20 +80,197 @@ export interface CheckResult {
   zoneMatch?: boolean;
 }
 
-export function checkGameUsername(gameId: string, mainId: string, zoneId?: string): CheckResult {
-  const db = MOCK_USERNAMES[gameId];
-  if (!db) return { found: false, username: '' };
-  const user = db[mainId];
-  if (!user) return { found: false, username: '' };
-  
-  // If game requires zone and zone was provided, verify it matches
-  const zoneMatch = user.zoneId ? (zoneId === user.zoneId) : true;
-  
+// ========== Database query functions ==========
+
+export async function fetchGamesWithPackages(): Promise<Game[]> {
+  const { data: gamesData, error: gamesError } = await supabase
+    .from('games')
+    .select('*')
+    .order('sort_order');
+
+  if (gamesError) {
+    console.error('Error fetching games:', gamesError);
+    return [];
+  }
+
+  const { data: packagesData, error: pkgError } = await supabase
+    .from('game_packages')
+    .select('*')
+    .order('sort_order');
+
+  if (pkgError) {
+    console.error('Error fetching packages:', pkgError);
+    return [];
+  }
+
+  return (gamesData || []).map((g: any) => ({
+    id: g.id,
+    name: g.name,
+    publisher: g.publisher,
+    icon: g.icon_url || getDefaultIcon(g.id),
+    banner: g.banner_url || getDefaultBanner(g.id),
+    region: g.region || '',
+    hot: g.hot || false,
+    outOfStock: g.out_of_stock || false,
+    idFields: (g.id_fields as any[]) || [],
+    packages: (packagesData || [])
+      .filter((p: any) => p.game_id === g.id)
+      .map((p: any) => ({
+        id: p.id,
+        name: p.name,
+        price: Number(p.price),
+        category: p.category as 'best-seller' | 'normal',
+        tag: p.tag || undefined,
+        image: p.image_url || undefined,
+        disabled: p.disabled || false,
+      })),
+  }));
+}
+
+export async function fetchGameById(gameId: string): Promise<Game | null> {
+  const { data: g, error } = await supabase
+    .from('games')
+    .select('*')
+    .eq('id', gameId)
+    .single();
+
+  if (error || !g) return null;
+
+  const { data: pkgs } = await supabase
+    .from('game_packages')
+    .select('*')
+    .eq('game_id', gameId)
+    .order('sort_order');
+
   return {
-    found: true,
-    username: user.username,
-    level: user.level,
-    server: user.server,
-    zoneMatch,
+    id: g.id,
+    name: g.name,
+    publisher: g.publisher,
+    icon: g.icon_url || getDefaultIcon(g.id),
+    banner: g.banner_url || getDefaultBanner(g.id),
+    region: g.region || '',
+    hot: g.hot || false,
+    outOfStock: g.out_of_stock || false,
+    idFields: (g.id_fields as any[]) || [],
+    packages: (pkgs || []).map((p: any) => ({
+      id: p.id,
+      name: p.name,
+      price: Number(p.price),
+      category: p.category as 'best-seller' | 'normal',
+      tag: p.tag || undefined,
+      image: p.image_url || undefined,
+      disabled: p.disabled || false,
+    })),
   };
+}
+
+// ========== Order functions (now using DB) ==========
+
+export async function addOrder(order: Order): Promise<void> {
+  const { error } = await supabase.from('orders').insert({
+    id: order.id,
+    game_id: order.gameId,
+    game_name: order.gameName,
+    player_ids: order.playerIds,
+    player_name: order.playerName || null,
+    package_id: order.packageId,
+    package_name: order.packageName,
+    price: order.price,
+    status: order.status,
+    created_at: order.createdAt,
+  });
+  if (error) console.error('Error adding order:', error);
+}
+
+export async function getOrderById(orderId: string): Promise<Order | null> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('id', orderId)
+    .single();
+
+  if (error || !data) return null;
+  return mapDbOrder(data);
+}
+
+export async function searchOrders(query: string): Promise<Order[]> {
+  const { data, error } = await supabase
+    .from('orders')
+    .select('*')
+    .or(`id.ilike.%${query}%,player_name.ilike.%${query}%`)
+    .order('created_at', { ascending: false })
+    .limit(20);
+
+  if (error) {
+    console.error('Error searching orders:', error);
+    return [];
+  }
+  return (data || []).map(mapDbOrder);
+}
+
+export async function updateOrderStatus(orderId: string, status: Order['status'], txHash?: string): Promise<void> {
+  const updates: Record<string, unknown> = { status };
+  if (txHash) updates.transaction_hash = txHash;
+  
+  const { error } = await supabase
+    .from('orders')
+    .update(updates)
+    .eq('id', orderId);
+  
+  // Fallback: also try via admin edge function (for non-anon updates)
+  if (error) {
+    console.warn('Direct update failed, trying admin endpoint:', error);
+    try {
+      await adminApiCall('update_order_status', { id: orderId, status, transaction_hash: txHash });
+    } catch (e) {
+      console.error('Admin update also failed:', e);
+    }
+  }
+}
+
+function mapDbOrder(data: any): Order {
+  return {
+    id: data.id,
+    gameId: data.game_id,
+    gameName: data.game_name,
+    playerIds: data.player_ids as Record<string, string>,
+    playerName: data.player_name || undefined,
+    packageId: data.package_id,
+    packageName: data.package_name,
+    price: Number(data.price),
+    status: data.status as Order['status'],
+    createdAt: data.created_at,
+    transactionHash: data.transaction_hash || undefined,
+  };
+}
+
+export function generateOrderId(): string {
+  return 'KS-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
+}
+
+// ========== Admin API helper ==========
+
+export async function adminApiCall(action: string, body?: any): Promise<any> {
+  const adminAuth = localStorage.getItem('kira_admin_auth');
+  if (!adminAuth) throw new Error('Not authenticated as admin');
+
+  const { data, error } = await supabase.functions.invoke('admin-products', {
+    body: body || {},
+    headers: {
+      'x-admin-auth': adminAuth,
+    },
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+// Keep for backward compat but mark deprecated
+export const GAMES: Game[] = [];
+
+// Mock username data kept for verify-game-id edge function reference
+export const MOCK_USERNAMES: Record<string, Record<string, any>> = {};
+
+export function checkGameUsername(gameId: string, mainId: string, zoneId?: string): CheckResult {
+  return { found: false, username: '' };
 }
