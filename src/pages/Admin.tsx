@@ -428,14 +428,27 @@ const Admin = () => {
                   </div>
 
                   <div className="flex flex-col items-end gap-2">
-                    <label className="flex items-center gap-2 text-xs">
-                      <input type="checkbox" checked={!!game.outOfStock} onChange={e => updateGameField(game.id, 'outOfStock', e.target.checked)} className="accent-destructive" />
-                      <span className="text-muted-foreground">អស់ស្តុក</span>
-                    </label>
-                    <label className="flex items-center gap-2 text-xs">
-                      <input type="checkbox" checked={!!game.hot} onChange={e => updateGameField(game.id, 'hot', e.target.checked)} className="accent-accent" />
-                      <span className="text-muted-foreground">HOT</span>
-                    </label>
+                    <button
+                      onClick={() => updateGameField(game.id, 'outOfStock', !game.outOfStock)}
+                      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${
+                        game.outOfStock
+                          ? 'bg-destructive text-destructive-foreground shadow-md scale-105'
+                          : 'bg-success/15 text-success hover:bg-success/25'
+                      }`}
+                    >
+                      {game.outOfStock ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      {game.outOfStock ? 'អស់ស្តុក' : 'មានស្តុក'}
+                    </button>
+                    <button
+                      onClick={() => updateGameField(game.id, 'hot', !game.hot)}
+                      className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${
+                        game.hot
+                          ? 'bg-accent text-accent-foreground shadow-md scale-105'
+                          : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                      }`}
+                    >
+                      🔥 {game.hot ? 'HOT' : 'ធម្មតា'}
+                    </button>
                   </div>
                 </div>
 
