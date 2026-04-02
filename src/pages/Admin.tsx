@@ -121,6 +121,27 @@ const Admin = () => {
     e.target.value = '';
   };
 
+  const handlePkgImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!pkgUploadTarget || !e.target.files?.[0]) return;
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      updatePackage(pkgUploadTarget.gameId, pkgUploadTarget.pkgId, 'image', dataUrl);
+      setPkgUploadTarget(null);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const toggleAllPackages = (gameId: string, disabled: boolean) => {
+    const updated = games.map(g => {
+      if (g.id !== gameId) return g;
+      return { ...g, packages: g.packages.map(p => ({ ...p, disabled })) };
+    });
+    saveGames(updated);
+  };
+
   const startEdit = (game: Game) => {
     setEditingGameId(game.id);
     setEditName(game.name);
