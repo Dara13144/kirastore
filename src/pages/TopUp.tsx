@@ -189,17 +189,56 @@ const TopUp = () => {
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-primary-foreground/30 bg-primary-foreground/10 py-3 text-sm font-medium text-primary-foreground transition-all hover:bg-primary-foreground/20 hover:scale-[1.02] active:scale-[0.98]"
           >
             {checkLoading ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> កំពុងពិនិត្យ...</>
+              <><Loader2 className="h-4 w-4 animate-spin" /> កំពុងពិនិត្យប្រព័ន្ធ...</>
             ) : (
-              <><Search className="h-4 w-4" /> ពិនិត្យគណនី (Check ID)</>
+              <><Search className="h-4 w-4" /> ពិនិត្យគណនី (System Check)</>
             )}
           </button>
 
-          {checkedName && (
-            <div className="mt-3 rounded-xl bg-primary-foreground/90 p-3 animate-scale-in">
-              <p className="text-sm text-success font-medium">
-                ✅ ឈ្មោះអ្នកប្រើ: <span className="font-bold">{checkedName}</span>
+          {/* Progress bar during check */}
+          {checkLoading && (
+            <div className="mt-3 animate-fade-in">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-primary-foreground/70">កំពុងស្កេនប្រព័ន្ធ...</span>
+                <span className="text-xs font-bold text-primary-foreground">{checkProgress}%</span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-primary-foreground/20">
+                <div
+                  className="h-full bg-primary-foreground transition-all duration-300 ease-out"
+                  style={{ width: `${checkProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Success result with details */}
+          {checkResult && (
+            <div className="mt-3 rounded-xl bg-primary-foreground/90 p-4 animate-scale-in space-y-2">
+              <p className="text-sm text-success font-bold flex items-center gap-1">
+                <CheckCircle className="h-4 w-4" /> ផ្ទៀងផ្ទាត់ជោគជ័យ
               </p>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg bg-background/50 p-2">
+                  <span className="text-muted-foreground">ឈ្មោះអ្នកប្រើ</span>
+                  <p className="font-bold text-foreground">{checkResult.username}</p>
+                </div>
+                {checkResult.server && (
+                  <div className="rounded-lg bg-background/50 p-2">
+                    <span className="text-muted-foreground">Server</span>
+                    <p className="font-bold text-foreground">{checkResult.server}</p>
+                  </div>
+                )}
+                {checkResult.level && (
+                  <div className="rounded-lg bg-background/50 p-2">
+                    <span className="text-muted-foreground">Level</span>
+                    <p className="font-bold text-foreground">Lv. {checkResult.level}</p>
+                  </div>
+                )}
+                <div className="rounded-lg bg-background/50 p-2">
+                  <span className="text-muted-foreground">Zone</span>
+                  <p className="font-bold text-success">✓ ត្រឹមត្រូវ</p>
+                </div>
+              </div>
             </div>
           )}
           {checkError && (
