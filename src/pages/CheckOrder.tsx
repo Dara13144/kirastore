@@ -5,10 +5,10 @@ import Footer from '@/components/Footer';
 import { getOrders, type Order } from '@/lib/store';
 
 const statusConfig = {
-  pending: { icon: Clock, color: 'text-primary', label: 'Pending' },
-  completed: { icon: CheckCircle, color: 'text-success', label: 'Completed' },
-  failed: { icon: XCircle, color: 'text-destructive', label: 'Failed' },
-  expired: { icon: XCircle, color: 'text-muted-foreground', label: 'Expired' },
+  pending: { icon: Clock, color: 'text-primary', label: 'កំពុងរង់ចាំ' },
+  completed: { icon: CheckCircle, color: 'text-success', label: 'បានបញ្ចប់' },
+  failed: { icon: XCircle, color: 'text-destructive', label: 'បរាជ័យ' },
+  expired: { icon: XCircle, color: 'text-muted-foreground', label: 'ផុតកំណត់' },
 };
 
 const CheckOrder = () => {
@@ -32,31 +32,31 @@ const CheckOrder = () => {
       <Navbar />
 
       <div className="container mx-auto max-w-lg px-4 py-8">
-        <h1 className="mb-6 font-heading text-xl font-bold text-gradient-green">Check Order</h1>
+        <h1 className="mb-6 font-heading text-xl font-bold text-gradient-green animate-fade-in">ពិនិត្យការបញ្ជាទិញ</h1>
 
-        <div className="mb-6 flex gap-2">
+        <div className="mb-6 flex gap-2 animate-fade-in" style={{ animationDelay: '100ms' }}>
           <input
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
-            placeholder="Order ID or Player ID..."
+            placeholder="បញ្ចូល Order ID ឬ Player ID..."
             className="flex-1 rounded-xl border-2 border-input bg-card px-4 py-3 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
           />
-          <button onClick={handleSearch} className="rounded-xl bg-gradient-green px-4 py-3 text-primary-foreground">
+          <button onClick={handleSearch} className="rounded-xl bg-gradient-green px-4 py-3 text-primary-foreground transition-transform hover:scale-105">
             <Search className="h-5 w-5" />
           </button>
         </div>
 
         {searched && results.length === 0 && (
-          <p className="text-center text-muted-foreground">No orders found.</p>
+          <p className="text-center text-muted-foreground animate-fade-in">រកមិនឃើញការបញ្ជាទិញ។</p>
         )}
 
         <div className="space-y-3">
-          {results.map(order => {
+          {results.map((order, i) => {
             const cfg = statusConfig[order.status];
             const Icon = cfg.icon;
             return (
-              <div key={order.id} className="rounded-2xl border-2 border-border bg-card p-4">
+              <div key={order.id} className="rounded-2xl border-2 border-border bg-card p-4 animate-fade-in" style={{ animationDelay: `${i * 80}ms` }}>
                 <div className="mb-2 flex items-center justify-between">
                   <span className="font-mono text-sm text-foreground">{order.id}</span>
                   <span className={`flex items-center gap-1 text-xs font-medium ${cfg.color}`}>
@@ -66,6 +66,7 @@ const CheckOrder = () => {
                 <div className="text-sm text-muted-foreground">
                   <p>{order.gameName}</p>
                   <p>{order.packageName} • <span className="text-primary font-bold">${order.price.toFixed(2)}</span></p>
+                  {order.playerName && <p>អ្នកលេង: <span className="text-success font-bold">{order.playerName}</span></p>}
                   <p className="text-xs">{new Date(order.createdAt).toLocaleString()}</p>
                 </div>
               </div>

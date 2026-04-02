@@ -2,10 +2,14 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import GameCard from '@/components/GameCard';
 import PromoCarousel from '@/components/PromoCarousel';
-import { GAMES } from '@/lib/store';
+import { GAMES, type Game } from '@/lib/store';
 import heroBanner from '@/assets/hero-banner.jpg';
 
 const Index = () => {
+  // Use admin-customized games if available
+  const customGames = localStorage.getItem('kira_custom_games');
+  const allGames: Game[] = customGames ? JSON.parse(customGames) : GAMES;
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -31,7 +35,7 @@ const Index = () => {
 
       <div className="container mx-auto px-4 py-6">
         <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
-          {GAMES.map((game, i) => (
+          {allGames.map((game, i) => (
             <div key={game.id} className="animate-fade-in" style={{ animationDelay: `${i * 80}ms` }}>
               <GameCard game={game} />
             </div>

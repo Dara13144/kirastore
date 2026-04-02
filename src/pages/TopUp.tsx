@@ -12,7 +12,10 @@ const TopUp = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const game = GAMES.find(g => g.id === gameId);
+  // Check custom games from admin
+  const customGames = localStorage.getItem('kira_custom_games');
+  const allGames = customGames ? JSON.parse(customGames) as Game[] : GAMES;
+  const game = allGames.find(g => g.id === gameId);
 
   const [playerIds, setPlayerIds] = useState<Record<string, string>>({});
   const [checkedName, setCheckedName] = useState<string | null>(null);
@@ -26,8 +29,8 @@ const TopUp = () => {
       <div className="min-h-screen bg-background">
         <Navbar />
         <div className="container mx-auto px-4 py-12 text-center animate-fade-in">
-          <p className="text-muted-foreground">Game not found.</p>
-          <Link to="/" className="mt-4 inline-block text-primary underline">Back to Home</Link>
+          <p className="text-muted-foreground">រកមិនឃើញហ្គេម។</p>
+          <Link to="/" className="mt-4 inline-block text-primary underline">ត្រលប់ទៅទំព័រដើម</Link>
         </div>
       </div>
     );
@@ -38,7 +41,7 @@ const TopUp = () => {
 
   const handleCheckAccount = async () => {
     if (!mainId) {
-      setCheckError('Please enter your ID first.');
+      setCheckError('សូមបញ្ចូល ID របស់អ្នកជាមុនសិន។');
       return;
     }
     setCheckLoading(true);
@@ -53,14 +56,14 @@ const TopUp = () => {
       setCheckError(null);
     } else {
       setCheckedName(null);
-      setCheckError(`No user found for ID "${mainId}".`);
+      setCheckError(`រកមិនឃើញអ្នកប្រើប្រាស់សម្រាប់ ID "${mainId}".`);
     }
     setCheckLoading(false);
   };
 
   const handleOrder = () => {
     if (!selectedPkg) {
-      toast({ title: 'សូមជ្រើសរើស Package', variant: 'destructive' });
+      toast({ title: 'សូមជ្រើសរើសកញ្ចប់', variant: 'destructive' });
       return;
     }
     if (!mainId) {
@@ -68,7 +71,7 @@ const TopUp = () => {
       return;
     }
     if (!agreedTerms) {
-      toast({ title: 'សូមយល់ព្រមលក្ខខណ្ឌ', description: 'Please agree to terms.', variant: 'destructive' });
+      toast({ title: 'សូមយល់ព្រមលក្ខខណ្ឌ', variant: 'destructive' });
       return;
     }
 
@@ -99,7 +102,7 @@ const TopUp = () => {
       {/* Back */}
       <div className="container mx-auto px-4 pt-4 animate-fade-in">
         <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="h-4 w-4" /> Return to home page
+          <ArrowLeft className="h-4 w-4" /> ត្រលប់ទៅទំព័រដើម
         </Link>
       </div>
 
@@ -116,7 +119,7 @@ const TopUp = () => {
             <h2 className="font-heading text-base font-bold text-primary">{game.name}</h2>
             <p className="text-xs text-muted-foreground">{game.publisher}</p>
             <p className="flex items-center gap-1 text-xs font-medium text-success">
-              <CheckCircle className="h-3 w-3" /> Instant Delivery
+              <CheckCircle className="h-3 w-3" /> ដឹកជញ្ជូនភ្លាមៗ
             </p>
           </div>
         </div>
@@ -127,7 +130,7 @@ const TopUp = () => {
         <div className="rounded-2xl bg-gradient-green p-4">
           <div className="mb-4 flex items-center gap-3">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-foreground font-heading text-sm font-bold text-primary">1</span>
-            <h3 className="font-heading text-base font-bold text-primary-foreground">Enter Account Info</h3>
+            <h3 className="font-heading text-base font-bold text-primary-foreground">បញ្ចូលព័ត៌មានគណនី</h3>
           </div>
 
           <div className="space-y-3">
@@ -154,16 +157,16 @@ const TopUp = () => {
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-primary-foreground/30 bg-primary-foreground/10 py-3 text-sm font-medium text-primary-foreground transition-all hover:bg-primary-foreground/20 hover:scale-[1.02] active:scale-[0.98]"
           >
             {checkLoading ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> Checking...</>
+              <><Loader2 className="h-4 w-4 animate-spin" /> កំពុងពិនិត្យ...</>
             ) : (
-              <><Search className="h-4 w-4" /> Check account (Check ID)</>
+              <><Search className="h-4 w-4" /> ពិនិត្យគណនី (Check ID)</>
             )}
           </button>
 
           {checkedName && (
             <div className="mt-3 rounded-xl bg-primary-foreground/90 p-3 animate-scale-in">
               <p className="text-sm text-success font-medium">
-                ✅ Username: <span className="font-bold">{checkedName}</span>
+                ✅ ឈ្មោះអ្នកប្រើ: <span className="font-bold">{checkedName}</span>
               </p>
             </div>
           )}
@@ -180,12 +183,12 @@ const TopUp = () => {
         <div className="rounded-2xl bg-gradient-green p-4">
           <div className="mb-4 flex items-center gap-3">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-foreground font-heading text-sm font-bold text-primary">2</span>
-            <h3 className="font-heading text-base font-bold text-primary-foreground">Select Package</h3>
+            <h3 className="font-heading text-base font-bold text-primary-foreground">ជ្រើសរើសកញ្ចប់</h3>
           </div>
 
           {bestSellers.length > 0 && (
             <>
-              <p className="mb-3 font-heading text-sm font-bold text-accent">🏆 Best Seller Package</p>
+              <p className="mb-3 font-heading text-sm font-bold text-accent">🏆 កញ្ចប់លក់ដាច់ជាងគេ</p>
               <div className="mb-4 grid grid-cols-2 gap-2">
                 {bestSellers.map((pkg, i) => (
                   <button
@@ -213,7 +216,7 @@ const TopUp = () => {
 
           {normals.length > 0 && (
             <>
-              <p className="mb-3 font-heading text-sm font-bold text-primary-foreground">💎 Normal package</p>
+              <p className="mb-3 font-heading text-sm font-bold text-primary-foreground">💎 កញ្ចប់ធម្មតា</p>
               <div className="grid grid-cols-2 gap-2">
                 {normals.map((pkg, i) => (
                   <button
@@ -249,7 +252,7 @@ const TopUp = () => {
         <div className="rounded-2xl bg-gradient-green p-4">
           <div className="mb-4 flex items-center gap-3">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-foreground font-heading text-sm font-bold text-primary">3</span>
-            <h3 className="font-heading text-base font-bold text-primary-foreground">Payment Method</h3>
+            <h3 className="font-heading text-base font-bold text-primary-foreground">វិធីបង់ប្រាក់</h3>
           </div>
 
           <div className="flex items-center justify-between rounded-xl border-2 border-primary bg-card p-4 transition-all hover:shadow-green">
@@ -276,7 +279,7 @@ const TopUp = () => {
               className="mt-1 h-5 w-5 rounded border-primary-foreground/30 accent-primary"
             />
             <span className="text-sm text-primary-foreground">
-              I have read and agree to <span className="font-bold italic text-accent-foreground underline">the Terms and Conditions</span> and Purchase Policy.
+              ខ្ញុំបានអាន និងយល់ព្រមតាម <span className="font-bold italic text-accent-foreground underline">លក្ខខណ្ឌ​ និង​គោលនយោបាយ</span> នៃការទិញ។
             </span>
           </label>
         </div>
@@ -286,7 +289,7 @@ const TopUp = () => {
       <div className="container mx-auto px-4 py-4 animate-slide-up" style={{ animationDelay: '600ms' }}>
         <div className="flex items-center justify-between rounded-2xl bg-card p-4 shadow-sm">
           <div>
-            <p className="text-xs font-bold uppercase text-muted-foreground">TOTAL PRICE</p>
+            <p className="text-xs font-bold uppercase text-muted-foreground">តម្លៃសរុប</p>
             <p className="font-heading text-2xl font-bold text-foreground">
               ${selectedPkg ? selectedPkg.price.toFixed(2) : '0.00'}
             </p>
