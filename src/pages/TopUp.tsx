@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Search, CheckCircle, Globe, Hash, ChevronRight, Loader2 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { GAMES, addOrder, generateOrderId, checkGameUsername, type Game, type GamePackage } from '@/lib/store';
+import { GAMES, addOrder, generateOrderId, checkGameUsername, type Game, type GamePackage, type CheckResult } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
 import { sendTelegramNotification } from '@/lib/telegram';
 import diamondIcon from '@/assets/diamond-icon.png';
@@ -19,9 +19,10 @@ const TopUp = () => {
   const game = allGames.find(g => g.id === gameId);
 
   const [playerIds, setPlayerIds] = useState<Record<string, string>>({});
-  const [checkedName, setCheckedName] = useState<string | null>(null);
+  const [checkResult, setCheckResult] = useState<CheckResult | null>(null);
   const [checkLoading, setCheckLoading] = useState(false);
   const [checkError, setCheckError] = useState<string | null>(null);
+  const [checkProgress, setCheckProgress] = useState(0);
   const [selectedPkg, setSelectedPkg] = useState<GamePackage | null>(null);
   const [agreedTerms, setAgreedTerms] = useState(false);
 
@@ -47,16 +48,35 @@ const TopUp = () => {
     }
     setCheckLoading(true);
     setCheckError(null);
-    setCheckedName(null);
+    setCheckResult(null);
+    setCheckProgress(0);
 
-    await new Promise(r => setTimeout(r, 800));
+    // Simulate multi-step system check
+    const steps = [
+      { label: 'កំពុងភ្ជាប់ទៅម៉ាស៊ីនមេ...', progress: 25 },
+      { label: 'កំពុងផ្ទៀងផ្ទាត់ ID...', progress: 50 },
+      { label: 'កំពុងពិនិត្យ Zone/Server...', progress: 75 },
+      { label: 'កំពុងបញ្ជាក់គណនី...', progress: 100 },
+    ];
 
-    const result = checkGameUsername(game.id, mainId);
+    for (const step of steps) {
+      setCheckProgress(step.progress);
+      await new Promise(r => setTimeout(r, 400));
+    }
+
+    const zoneId = playerIds['zoneId']?.trim() || undefined;
+    const result = checkGameUsername(game.id, mainId, zoneId);
+    
     if (result.found) {
-      setCheckedName(result.username);
-      setCheckError(null);
+      if (result.zoneMatch === false) {
+        setCheckResult(null);
+        setCheckError(`⚠️ Zone ID មិនត្រឹមត្រូវសម្រាប់គណនី "${mainId}". សូមពិនិត្យ Zone ID ម្តងទៀត។`);
+      } else {
+        setCheckResult(result);
+        setCheckError(null);
+      }
     } else {
-      setCheckedName(null);
+      setCheckResult(null);
       setCheckError(`រកមិនឃើញអ្នកប្រើប្រាស់សម្រាប់ ID "${mainId}".`);
     }
     setCheckLoading(false);
@@ -81,7 +101,7 @@ const TopUp = () => {
       gameId: game.id,
       gameName: game.name,
       playerIds,
-      playerName: checkedName || undefined,
+      playerName: checkResult?.username || undefined,
       packageId: selectedPkg.id,
       packageName: selectedPkg.name,
       price: selectedPkg.price,
@@ -169,17 +189,56 @@ const TopUp = () => {
             className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-primary-foreground/30 bg-primary-foreground/10 py-3 text-sm font-medium text-primary-foreground transition-all hover:bg-primary-foreground/20 hover:scale-[1.02] active:scale-[0.98]"
           >
             {checkLoading ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> កំពុងពិនិត្យ...</>
+              <><Loader2 className="h-4 w-4 animate-spin" /> កំពុងពិនិត្យប្រព័ន្ធ...</>
             ) : (
-              <><Search className="h-4 w-4" /> ពិនិត្យគណនី (Check ID)</>
+              <><Search className="h-4 w-4" /> ពិនិត្យគណនី (System Check)</>
             )}
           </button>
 
-          {checkedName && (
-            <div className="mt-3 rounded-xl bg-primary-foreground/90 p-3 animate-scale-in">
-              <p className="text-sm text-success font-medium">
-                ✅ ឈ្មោះអ្នកប្រើ: <span className="font-bold">{checkedName}</span>
+          {/* Progress bar during check */}
+          {checkLoading && (
+            <div className="mt-3 animate-fade-in">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs text-primary-foreground/70">កំពុងស្កេនប្រព័ន្ធ...</span>
+                <span className="text-xs font-bold text-primary-foreground">{checkProgress}%</span>
+              </div>
+              <div className="h-2 w-full overflow-hidden rounded-full bg-primary-foreground/20">
+                <div
+                  className="h-full bg-primary-foreground transition-all duration-300 ease-out"
+                  style={{ width: `${checkProgress}%` }}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Success result with details */}
+          {checkResult && (
+            <div className="mt-3 rounded-xl bg-primary-foreground/90 p-4 animate-scale-in space-y-2">
+              <p className="text-sm text-success font-bold flex items-center gap-1">
+                <CheckCircle className="h-4 w-4" /> ផ្ទៀងផ្ទាត់ជោគជ័យ
               </p>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg bg-background/50 p-2">
+                  <span className="text-muted-foreground">ឈ្មោះអ្នកប្រើ</span>
+                  <p className="font-bold text-foreground">{checkResult.username}</p>
+                </div>
+                {checkResult.server && (
+                  <div className="rounded-lg bg-background/50 p-2">
+                    <span className="text-muted-foreground">Server</span>
+                    <p className="font-bold text-foreground">{checkResult.server}</p>
+                  </div>
+                )}
+                {checkResult.level && (
+                  <div className="rounded-lg bg-background/50 p-2">
+                    <span className="text-muted-foreground">Level</span>
+                    <p className="font-bold text-foreground">Lv. {checkResult.level}</p>
+                  </div>
+                )}
+                <div className="rounded-lg bg-background/50 p-2">
+                  <span className="text-muted-foreground">Zone</span>
+                  <p className="font-bold text-success">✓ ត្រឹមត្រូវ</p>
+                </div>
+              </div>
             </div>
           )}
           {checkError && (
