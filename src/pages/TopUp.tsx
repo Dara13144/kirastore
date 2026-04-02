@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Search, CheckCircle, Globe, Hash, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Search, CheckCircle, Globe, Hash, ChevronRight, Loader2 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { GAMES, addOrder, generateOrderId, checkGameUsername, type Game, type GamePackage } from '@/lib/store';
@@ -25,7 +25,7 @@ const TopUp = () => {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
-        <div className="container mx-auto px-4 py-12 text-center">
+        <div className="container mx-auto px-4 py-12 text-center animate-fade-in">
           <p className="text-muted-foreground">Game not found.</p>
           <Link to="/" className="mt-4 inline-block text-primary underline">Back to Home</Link>
         </div>
@@ -45,7 +45,6 @@ const TopUp = () => {
     setCheckError(null);
     setCheckedName(null);
 
-    // Simulate network delay
     await new Promise(r => setTimeout(r, 800));
 
     const result = checkGameUsername(game.id, mainId);
@@ -98,21 +97,21 @@ const TopUp = () => {
       <Navbar />
 
       {/* Back */}
-      <div className="container mx-auto px-4 pt-4">
-        <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
+      <div className="container mx-auto px-4 pt-4 animate-fade-in">
+        <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" /> Return to home page
         </Link>
       </div>
 
       {/* Banner */}
-      <div className="container mx-auto px-4 pt-3">
-        <img src={game.banner} alt={game.name} className="w-full rounded-2xl object-cover" width={1024} height={512} />
+      <div className="container mx-auto px-4 pt-3 animate-scale-in">
+        <img src={game.banner} alt={game.name} className="w-full rounded-2xl object-cover shadow-green" width={1024} height={512} />
       </div>
 
       {/* Game Info */}
-      <div className="container mx-auto px-4 pt-4">
+      <div className="container mx-auto px-4 pt-4 animate-slide-up" style={{ animationDelay: '100ms' }}>
         <div className="flex items-center gap-4 rounded-2xl bg-card p-4 shadow-sm">
-          <img src={game.icon} alt="" className="h-16 w-16 rounded-xl" width={64} height={64} />
+          <img src={game.icon} alt="" className="h-16 w-16 rounded-xl animate-float" width={64} height={64} />
           <div>
             <h2 className="font-heading text-base font-bold text-primary">{game.name}</h2>
             <p className="text-xs text-muted-foreground">{game.publisher}</p>
@@ -124,7 +123,7 @@ const TopUp = () => {
       </div>
 
       {/* Step 1: Enter Account Info */}
-      <div className="container mx-auto px-4 pt-4">
+      <div className="container mx-auto px-4 pt-4 animate-slide-up" style={{ animationDelay: '200ms' }}>
         <div className="rounded-2xl bg-gradient-green p-4">
           <div className="mb-4 flex items-center gap-3">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-foreground font-heading text-sm font-bold text-primary">1</span>
@@ -135,7 +134,7 @@ const TopUp = () => {
             {game.idFields.map(field => (
               <div key={field.key}>
                 <label className="mb-1 block text-xs font-bold uppercase text-primary-foreground/80">{field.label}</label>
-                <div className="flex items-center gap-2 rounded-xl bg-primary-foreground/90 px-3 py-3">
+                <div className="flex items-center gap-2 rounded-xl bg-primary-foreground/90 px-3 py-3 transition-all focus-within:ring-2 focus-within:ring-primary-foreground/50">
                   {field.key === 'userId' || field.key === 'playerId' ? <Hash className="h-4 w-4 text-muted-foreground" /> : <Globe className="h-4 w-4 text-muted-foreground" />}
                   <input
                     type="text"
@@ -149,26 +148,27 @@ const TopUp = () => {
             ))}
           </div>
 
-          {/* Check Account Button */}
           <button
             onClick={handleCheckAccount}
             disabled={checkLoading}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-primary-foreground/30 bg-primary-foreground/10 py-3 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-foreground/20"
+            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-primary-foreground/30 bg-primary-foreground/10 py-3 text-sm font-medium text-primary-foreground transition-all hover:bg-primary-foreground/20 hover:scale-[1.02] active:scale-[0.98]"
           >
-            <Search className="h-4 w-4" />
-            {checkLoading ? 'Checking...' : 'Check account (Check ID)'}
+            {checkLoading ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Checking...</>
+            ) : (
+              <><Search className="h-4 w-4" /> Check account (Check ID)</>
+            )}
           </button>
 
-          {/* Check Result */}
           {checkedName && (
-            <div className="mt-3 rounded-xl bg-primary-foreground/90 p-3">
+            <div className="mt-3 rounded-xl bg-primary-foreground/90 p-3 animate-scale-in">
               <p className="text-sm text-success font-medium">
                 ✅ Username: <span className="font-bold">{checkedName}</span>
               </p>
             </div>
           )}
           {checkError && (
-            <div className="mt-3 rounded-xl bg-accent/10 p-3">
+            <div className="mt-3 rounded-xl bg-accent/10 p-3 animate-shake">
               <p className="text-sm text-accent font-medium">❌ {checkError}</p>
             </div>
           )}
@@ -176,27 +176,27 @@ const TopUp = () => {
       </div>
 
       {/* Step 2: Select Package */}
-      <div className="container mx-auto px-4 pt-4">
+      <div className="container mx-auto px-4 pt-4 animate-slide-up" style={{ animationDelay: '300ms' }}>
         <div className="rounded-2xl bg-gradient-green p-4">
           <div className="mb-4 flex items-center gap-3">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-foreground font-heading text-sm font-bold text-primary">2</span>
             <h3 className="font-heading text-base font-bold text-primary-foreground">Select Package</h3>
           </div>
 
-          {/* Best Sellers */}
           {bestSellers.length > 0 && (
             <>
               <p className="mb-3 font-heading text-sm font-bold text-accent">🏆 Best Seller Package</p>
               <div className="mb-4 grid grid-cols-2 gap-2">
-                {bestSellers.map(pkg => (
+                {bestSellers.map((pkg, i) => (
                   <button
                     key={pkg.id}
                     onClick={() => setSelectedPkg(pkg)}
-                    className={`relative rounded-xl border-2 p-3 text-left transition-all ${
+                    className={`relative rounded-xl border-2 p-3 text-left transition-all hover:scale-[1.03] active:scale-[0.97] ${
                       selectedPkg?.id === pkg.id
-                        ? 'border-primary bg-primary/5'
+                        ? 'border-primary bg-primary/5 shadow-green'
                         : 'border-border bg-card hover:border-primary/50'
                     }`}
+                    style={{ animationDelay: `${i * 50}ms` }}
                   >
                     {pkg.tag && (
                       <span className="absolute -right-1 -top-2 rounded bg-accent px-1.5 py-0.5 text-[9px] font-bold text-accent-foreground">
@@ -211,20 +211,20 @@ const TopUp = () => {
             </>
           )}
 
-          {/* Normal */}
           {normals.length > 0 && (
             <>
               <p className="mb-3 font-heading text-sm font-bold text-primary-foreground">💎 Normal package</p>
               <div className="grid grid-cols-2 gap-2">
-                {normals.map(pkg => (
+                {normals.map((pkg, i) => (
                   <button
                     key={pkg.id}
                     onClick={() => setSelectedPkg(pkg)}
-                    className={`relative flex items-center justify-between rounded-xl border-2 p-3 text-left transition-all ${
+                    className={`relative flex items-center justify-between rounded-xl border-2 p-3 text-left transition-all hover:scale-[1.03] active:scale-[0.97] ${
                       selectedPkg?.id === pkg.id
-                        ? 'border-primary bg-primary/5'
+                        ? 'border-primary bg-primary/5 shadow-green'
                         : 'border-border bg-card hover:border-primary/50'
                     }`}
+                    style={{ animationDelay: `${i * 50}ms` }}
                   >
                     {pkg.tag && (
                       <span className="absolute -right-1 -top-2 rounded bg-accent px-1.5 py-0.5 text-[9px] font-bold text-accent-foreground">
@@ -235,7 +235,7 @@ const TopUp = () => {
                       <p className="text-sm font-bold text-foreground">{pkg.name}</p>
                       <p className="text-sm font-bold text-primary">$ {pkg.price.toFixed(2)}</p>
                     </div>
-                    <img src={diamondIcon} alt="" className="h-10 w-10" loading="lazy" />
+                    <img src={diamondIcon} alt="" className="h-10 w-10 animate-float" loading="lazy" />
                   </button>
                 ))}
               </div>
@@ -245,14 +245,14 @@ const TopUp = () => {
       </div>
 
       {/* Step 3: Payment Method */}
-      <div className="container mx-auto px-4 pt-4">
+      <div className="container mx-auto px-4 pt-4 animate-slide-up" style={{ animationDelay: '400ms' }}>
         <div className="rounded-2xl bg-gradient-green p-4">
           <div className="mb-4 flex items-center gap-3">
             <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-foreground font-heading text-sm font-bold text-primary">3</span>
             <h3 className="font-heading text-base font-bold text-primary-foreground">Payment Method</h3>
           </div>
 
-          <div className="flex items-center justify-between rounded-xl border-2 border-primary bg-card p-4">
+          <div className="flex items-center justify-between rounded-xl border-2 border-primary bg-card p-4 transition-all hover:shadow-green">
             <div className="flex items-center gap-3">
               <div className="flex h-10 w-10 flex-col items-center justify-center rounded-lg bg-accent">
                 <span className="text-[8px] font-bold text-accent-foreground">ABA</span>
@@ -266,7 +266,7 @@ const TopUp = () => {
       </div>
 
       {/* Terms */}
-      <div className="container mx-auto px-4 pt-4">
+      <div className="container mx-auto px-4 pt-4 animate-slide-up" style={{ animationDelay: '500ms' }}>
         <div className="rounded-2xl bg-gradient-green p-4">
           <label className="flex cursor-pointer items-start gap-3">
             <input
@@ -283,7 +283,7 @@ const TopUp = () => {
       </div>
 
       {/* Total & Order */}
-      <div className="container mx-auto px-4 py-4">
+      <div className="container mx-auto px-4 py-4 animate-slide-up" style={{ animationDelay: '600ms' }}>
         <div className="flex items-center justify-between rounded-2xl bg-card p-4 shadow-sm">
           <div>
             <p className="text-xs font-bold uppercase text-muted-foreground">TOTAL PRICE</p>
@@ -293,7 +293,7 @@ const TopUp = () => {
           </div>
           <button
             onClick={handleOrder}
-            className="flex items-center gap-2 rounded-xl bg-gradient-green px-8 py-3 font-heading text-sm font-bold text-primary-foreground shadow-green transition-transform hover:scale-105"
+            className="flex items-center gap-2 rounded-xl bg-gradient-green px-8 py-3 font-heading text-sm font-bold text-primary-foreground shadow-green transition-all hover:scale-105 active:scale-95"
           >
             បញ្ជាទិញ <ChevronRight className="h-4 w-4" />
           </button>
