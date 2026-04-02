@@ -327,7 +327,11 @@ const TopUp = () => {
                       <p className="text-sm font-bold text-foreground">{pkg.name}</p>
                       <p className="text-sm font-bold text-primary">$ {pkg.price.toFixed(2)}</p>
                     </div>
-                    <img src={diamondIcon} alt="" className="h-10 w-10 animate-float" loading="lazy" />
+                    {pkg.image ? (
+                      <img src={pkg.image} alt="" className="h-10 w-10 rounded-lg object-cover" loading="lazy" />
+                    ) : (
+                      <img src={diamondIcon} alt="" className="h-10 w-10 animate-float" loading="lazy" />
+                    )}
                   </button>
                 ))}
               </div>
