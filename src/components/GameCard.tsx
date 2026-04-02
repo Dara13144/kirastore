@@ -24,6 +24,9 @@ const GameCard = ({ game }: Props) => {
             HOT
           </span>
         )}
+        {game.region && (
+          <span className="absolute -left-1 bottom-0 text-lg">{game.region}</span>
+        )}
       </div>
 
       <h3 className="mb-2 text-center font-heading text-xs font-bold leading-tight text-foreground">
@@ -32,14 +35,14 @@ const GameCard = ({ game }: Props) => {
 
       {isDisabled ? (
         <div className="rounded-full bg-muted py-2 text-center text-xs font-medium text-muted-foreground">
-          Out of stock
+          អស់ស្តុក
         </div>
       ) : (
         <Link
           to={`/topup/${game.id}`}
           className="block rounded-full bg-gradient-green py-2 text-center text-xs font-bold text-primary-foreground transition-transform hover:scale-105"
         >
-          Top up
+          បញ្ចូលទឹកប្រាក់
         </Link>
       )}
     </div>
