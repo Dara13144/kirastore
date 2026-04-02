@@ -93,6 +93,27 @@ Deno.serve(async (req) => {
         })
       }
 
+      // ===== ADD NEW GAME =====
+      case 'add_game': {
+        const { action: _a, ...gameData } = body
+        const { error } = await supabase.from('games').insert(gameData)
+        if (error) throw error
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      case 'delete_game': {
+        const { id } = body
+        // Delete packages first
+        await supabase.from('game_packages').delete().eq('game_id', id)
+        const { error } = await supabase.from('games').delete().eq('id', id)
+        if (error) throw error
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
       // ===== ORDERS =====
       case 'update_order_status': {
         const { id, status, transaction_hash } = body
