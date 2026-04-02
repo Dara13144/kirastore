@@ -133,8 +133,8 @@ const TopUp = () => {
     navigate(`/payment/${order.id}`);
   };
 
-  const bestSellers = game.packages.filter(p => p.category === 'best-seller');
-  const normals = game.packages.filter(p => p.category === 'normal');
+  const bestSellers = game.packages.filter(p => p.category === 'best-seller' && !p.disabled);
+  const normals = game.packages.filter(p => p.category === 'normal' && !p.disabled);
 
   return (
     <div className="min-h-screen bg-background">
@@ -286,8 +286,17 @@ const TopUp = () => {
                         {pkg.tag}
                       </span>
                     )}
-                    <p className="text-sm font-bold text-foreground">{pkg.name}</p>
-                    <p className="text-sm font-bold text-primary">$ {pkg.price.toFixed(2)}</p>
+                    <div className="flex items-center gap-2">
+                      {pkg.image ? (
+                        <img src={pkg.image} alt="" className="h-8 w-8 rounded-lg object-cover shrink-0" loading="lazy" />
+                      ) : (
+                        <img src={diamondIcon} alt="" className="h-8 w-8 shrink-0 animate-float" loading="lazy" />
+                      )}
+                      <div>
+                        <p className="text-sm font-bold text-foreground">{pkg.name}</p>
+                        <p className="text-sm font-bold text-primary">$ {pkg.price.toFixed(2)}</p>
+                      </div>
+                    </div>
                   </button>
                 ))}
               </div>
@@ -318,7 +327,11 @@ const TopUp = () => {
                       <p className="text-sm font-bold text-foreground">{pkg.name}</p>
                       <p className="text-sm font-bold text-primary">$ {pkg.price.toFixed(2)}</p>
                     </div>
-                    <img src={diamondIcon} alt="" className="h-10 w-10 animate-float" loading="lazy" />
+                    {pkg.image ? (
+                      <img src={pkg.image} alt="" className="h-10 w-10 rounded-lg object-cover" loading="lazy" />
+                    ) : (
+                      <img src={diamondIcon} alt="" className="h-10 w-10 animate-float" loading="lazy" />
+                    )}
                   </button>
                 ))}
               </div>

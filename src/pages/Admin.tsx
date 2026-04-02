@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Shield, CheckCircle, XCircle, Clock, RefreshCw, LogOut, Package, Settings, Plus, Trash2, Image, Edit3, Save, Upload, Send } from 'lucide-react';
+import { Shield, CheckCircle, XCircle, Clock, RefreshCw, LogOut, Package, Settings, Plus, Trash2, Image, Edit3, Save, Upload, Send, Power, PowerOff, Eye, EyeOff } from 'lucide-react';
 import { getOrders, updateOrderStatus, GAMES, type Order, type Game, type GamePackage } from '@/lib/store';
 import { getTelegramChatId, setTelegramChatId, sendTelegramNotification } from '@/lib/telegram';
 
@@ -29,7 +29,9 @@ const Admin = () => {
   const [editPublisher, setEditPublisher] = useState('');
   const iconInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
+  const pkgImageInputRef = useRef<HTMLInputElement>(null);
   const [uploadTarget, setUploadTarget] = useState<{ gameId: string; field: 'icon' | 'banner' } | null>(null);
+  const [pkgUploadTarget, setPkgUploadTarget] = useState<{ gameId: string; pkgId: string } | null>(null);
 
   useEffect(() => {
     const session = localStorage.getItem('kira_admin_session');
@@ -119,6 +121,27 @@ const Admin = () => {
     e.target.value = '';
   };
 
+  const handlePkgImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!pkgUploadTarget || !e.target.files?.[0]) return;
+    const file = e.target.files[0];
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      updatePackage(pkgUploadTarget.gameId, pkgUploadTarget.pkgId, 'image', dataUrl);
+      setPkgUploadTarget(null);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
+
+  const toggleAllPackages = (gameId: string, disabled: boolean) => {
+    const updated = games.map(g => {
+      if (g.id !== gameId) return g;
+      return { ...g, packages: g.packages.map(p => ({ ...p, disabled })) };
+    });
+    saveGames(updated);
+  };
+
   const startEdit = (game: Game) => {
     setEditingGameId(game.id);
     setEditName(game.name);
@@ -172,6 +195,7 @@ const Admin = () => {
       {/* Hidden file inputs */}
       <input ref={iconInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
       <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+      <input ref={pkgImageInputRef} type="file" accept="image/*" className="hidden" onChange={handlePkgImageUpload} />
 
       {/* Header */}
       <div className="bg-gradient-green px-4 py-4">
@@ -358,25 +382,69 @@ const Admin = () => {
                   </button>
                 </div>
 
+                {/* Bulk Controls */}
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-bold text-muted-foreground">កញ្ចប់ទាំងអស់:</span>
+                  <button onClick={() => toggleAllPackages(game.id, false)} className="flex items-center gap-1 rounded-lg bg-success/10 px-2 py-1 text-[10px] font-medium text-success hover:bg-success/20 transition-colors">
+                    <Power className="h-3 w-3" /> បើកទាំងអស់
+                  </button>
+                  <button onClick={() => toggleAllPackages(game.id, true)} className="flex items-center gap-1 rounded-lg bg-destructive/10 px-2 py-1 text-[10px] font-medium text-destructive hover:bg-destructive/20 transition-colors">
+                    <PowerOff className="h-3 w-3" /> បិទទាំងអស់
+                  </button>
+                  <span className="ml-auto text-[10px] text-muted-foreground">
+                    {game.packages.filter(p => !p.disabled).length}/{game.packages.length} សកម្ម
+                  </span>
+                </div>
+
                 {/* Packages */}
                 <div className="space-y-2">
                   {game.packages.map(pkg => (
-                    <div key={pkg.id} className="flex items-center gap-2 rounded-lg bg-muted p-2">
-                      <input value={pkg.name} onChange={e => updatePackage(game.id, pkg.id, 'name', e.target.value)}
-                        className="flex-1 rounded bg-card px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
-                      <input type="number" step="0.01" value={pkg.price} onChange={e => updatePackage(game.id, pkg.id, 'price', parseFloat(e.target.value) || 0)}
-                        className="w-20 rounded bg-card px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
-                      <select value={pkg.category} onChange={e => updatePackage(game.id, pkg.id, 'category', e.target.value)}
-                        className="rounded bg-card px-2 py-1 text-xs text-foreground focus:outline-none">
-                        <option value="normal">ធម្មតា</option>
-                        <option value="best-seller">លក់ដាច់</option>
-                      </select>
-                      <input value={pkg.tag || ''} onChange={e => updatePackage(game.id, pkg.id, 'tag', e.target.value || undefined)}
-                        placeholder="Tag"
-                        className="w-16 rounded bg-card px-2 py-1 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
-                      <button onClick={() => deletePackage(game.id, pkg.id)} className="rounded p-1 text-destructive hover:bg-destructive/10 transition-colors">
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
+                    <div key={pkg.id} className={`rounded-lg border p-2 transition-all ${pkg.disabled ? 'bg-muted/50 border-border opacity-60' : 'bg-muted border-transparent'}`}>
+                      <div className="flex items-center gap-2">
+                        {/* Package image */}
+                        <div className="relative group shrink-0">
+                          {pkg.image ? (
+                            <img src={pkg.image} alt="" className="h-9 w-9 rounded-lg object-cover" />
+                          ) : (
+                            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                              <Image className="h-4 w-4" />
+                            </div>
+                          )}
+                          <button
+                            onClick={() => {
+                              setPkgUploadTarget({ gameId: game.id, pkgId: pkg.id });
+                              pkgImageInputRef.current?.click();
+                            }}
+                            className="absolute inset-0 flex items-center justify-center rounded-lg bg-foreground/60 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Upload className="h-3 w-3 text-primary-foreground" />
+                          </button>
+                        </div>
+
+                        <input value={pkg.name} onChange={e => updatePackage(game.id, pkg.id, 'name', e.target.value)}
+                          className="flex-1 min-w-0 rounded bg-card px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+                        <input type="number" step="0.01" value={pkg.price} onChange={e => updatePackage(game.id, pkg.id, 'price', parseFloat(e.target.value) || 0)}
+                          className="w-16 rounded bg-card px-2 py-1 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+                        <select value={pkg.category} onChange={e => updatePackage(game.id, pkg.id, 'category', e.target.value)}
+                          className="rounded bg-card px-1 py-1 text-[10px] text-foreground focus:outline-none">
+                          <option value="normal">ធម្មតា</option>
+                          <option value="best-seller">លក់ដាច់</option>
+                        </select>
+                        <input value={pkg.tag || ''} onChange={e => updatePackage(game.id, pkg.id, 'tag', e.target.value || undefined)}
+                          placeholder="Tag"
+                          className="w-14 rounded bg-card px-2 py-1 text-[10px] text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+                        {/* Toggle disable */}
+                        <button
+                          onClick={() => updatePackage(game.id, pkg.id, 'disabled', !pkg.disabled)}
+                          className={`rounded p-1 transition-colors ${pkg.disabled ? 'text-destructive hover:bg-destructive/10' : 'text-success hover:bg-success/10'}`}
+                          title={pkg.disabled ? 'បើកកញ្ចប់' : 'បិទកញ្ចប់'}
+                        >
+                          {pkg.disabled ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                        </button>
+                        <button onClick={() => deletePackage(game.id, pkg.id)} className="rounded p-1 text-destructive hover:bg-destructive/10 transition-colors">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>

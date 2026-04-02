@@ -24,6 +24,8 @@ export interface GamePackage {
   price: number;
   category: 'best-seller' | 'normal';
   tag?: string;
+  image?: string;
+  disabled?: boolean;
 }
 
 export interface Order {
