@@ -48,16 +48,35 @@ const TopUp = () => {
     }
     setCheckLoading(true);
     setCheckError(null);
-    setCheckedName(null);
+    setCheckResult(null);
+    setCheckProgress(0);
 
-    await new Promise(r => setTimeout(r, 800));
+    // Simulate multi-step system check
+    const steps = [
+      { label: 'កំពុងភ្ជាប់ទៅម៉ាស៊ីនមេ...', progress: 25 },
+      { label: 'កំពុងផ្ទៀងផ្ទាត់ ID...', progress: 50 },
+      { label: 'កំពុងពិនិត្យ Zone/Server...', progress: 75 },
+      { label: 'កំពុងបញ្ជាក់គណនី...', progress: 100 },
+    ];
 
-    const result = checkGameUsername(game.id, mainId);
+    for (const step of steps) {
+      setCheckProgress(step.progress);
+      await new Promise(r => setTimeout(r, 400));
+    }
+
+    const zoneId = playerIds['zoneId']?.trim() || undefined;
+    const result = checkGameUsername(game.id, mainId, zoneId);
+    
     if (result.found) {
-      setCheckedName(result.username);
-      setCheckError(null);
+      if (result.zoneMatch === false) {
+        setCheckResult(null);
+        setCheckError(`⚠️ Zone ID មិនត្រឹមត្រូវសម្រាប់គណនី "${mainId}". សូមពិនិត្យ Zone ID ម្តងទៀត។`);
+      } else {
+        setCheckResult(result);
+        setCheckError(null);
+      }
     } else {
-      setCheckedName(null);
+      setCheckResult(null);
       setCheckError(`រកមិនឃើញអ្នកប្រើប្រាស់សម្រាប់ ID "${mainId}".`);
     }
     setCheckLoading(false);
