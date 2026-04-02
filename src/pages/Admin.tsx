@@ -599,6 +599,12 @@ const Admin = () => {
                     >
                       🔥 {game.hot ? 'HOT' : 'ធម្មតា'}
                     </button>
+                    <button
+                      onClick={() => deleteGame(game.id, game.name)}
+                      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold text-destructive bg-destructive/10 hover:bg-destructive/20 transition-all"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> លុប
+                    </button>
                   </div>
                 </div>
 
