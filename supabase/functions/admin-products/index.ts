@@ -67,7 +67,8 @@ Deno.serve(async (req) => {
       }
 
       case 'add_package': {
-        const { error } = await supabase.from('game_packages').insert(body)
+        const { action: _a, ...insertData } = body
+        const { error } = await supabase.from('game_packages').insert(insertData)
         if (error) throw error
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
