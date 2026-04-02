@@ -71,13 +71,11 @@ function computeCRC16(str: string): string {
   return crc.toString(16).toUpperCase().padStart(4, '0')
 }
 
-// MD5 hash using Deno's std library (crypto.subtle doesn't support MD5)
+// MD5 hash using Deno std crypto (extends WebCrypto with MD5 support)
 async function generateMD5(input: string): Promise<string> {
-  const { crypto: denoCrypto } = await import('https://deno.land/std@0.224.0/crypto/mod.ts')
   const data = new TextEncoder().encode(input)
-  const hashBuffer = await denoCrypto.subtle.digest('MD5', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+  const hashBuffer = await crypto.subtle.digest('MD5', data)
+  return encodeHex(new Uint8Array(hashBuffer))
 }
 
 // Check payment status via Bakong API
