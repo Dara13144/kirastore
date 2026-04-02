@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Search, CheckCircle, Clock, XCircle } from 'lucide-react';
+import { Search, CheckCircle, Clock, XCircle, Loader2 } from 'lucide-react';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import { getOrders, type Order } from '@/lib/store';
+import { searchOrders, type Order } from '@/lib/store';
 
 const statusConfig = {
   pending: { icon: Clock, color: 'text-primary', label: 'កំពុងរង់ចាំ' },
@@ -15,16 +15,15 @@ const CheckOrder = () => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Order[]>([]);
   const [searched, setSearched] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!query.trim()) return;
-    const orders = getOrders();
-    const found = orders.filter(
-      o => o.id.toLowerCase().includes(query.toLowerCase()) ||
-           Object.values(o.playerIds).some(v => v.includes(query))
-    );
+    setLoading(true);
+    const found = await searchOrders(query.trim());
     setResults(found);
     setSearched(true);
+    setLoading(false);
   };
 
   return (
@@ -39,15 +38,15 @@ const CheckOrder = () => {
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleSearch()}
-            placeholder="បញ្ចូល Order ID ឬ Player ID..."
+            placeholder="បញ្ចូល Order ID ឬ Player Name..."
             className="flex-1 rounded-xl border-2 border-input bg-card px-4 py-3 text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none"
           />
-          <button onClick={handleSearch} className="rounded-xl bg-gradient-green px-4 py-3 text-primary-foreground transition-transform hover:scale-105">
-            <Search className="h-5 w-5" />
+          <button onClick={handleSearch} disabled={loading} className="rounded-xl bg-gradient-green px-4 py-3 text-primary-foreground transition-transform hover:scale-105">
+            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Search className="h-5 w-5" />}
           </button>
         </div>
 
-        {searched && results.length === 0 && (
+        {searched && results.length === 0 && !loading && (
           <p className="text-center text-muted-foreground animate-fade-in">រកមិនឃើញការបញ្ជាទិញ។</p>
         )}
 
