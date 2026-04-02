@@ -295,7 +295,7 @@ Deno.serve(async (req) => {
         }
 
         const khqrString = generateKHQRString(Number(amount), orderId)
-        const qrMd5 = await generateMD5(khqrString)
+        const qrMd5 = generateMD5(khqrString)
 
         const supabase = getSupabase()
         await supabase.from('orders').update({ transaction_hash: `md5:${qrMd5}` }).eq('id', orderId)
