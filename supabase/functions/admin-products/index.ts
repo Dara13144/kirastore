@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
     switch (action) {
       // ===== GAMES =====
       case 'update_game': {
-        const { id, ...fields } = body
+        const { id, action: _a, ...fields } = body
         const { error } = await supabase.from('games').update(fields).eq('id', id)
         if (error) throw error
         return new Response(JSON.stringify({ success: true }), {
