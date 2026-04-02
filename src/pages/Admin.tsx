@@ -246,6 +246,55 @@ const Admin = () => {
     setEditingGameId(null);
   };
 
+  const addNewGame = async () => {
+    if (!newGame.id.trim() || !newGame.name.trim() || !newGame.publisher.trim()) return;
+    setSaving(true);
+    try {
+      await adminApiCall('add_game', {
+        id: newGame.id.trim().toLowerCase().replace(/\s+/g, '-'),
+        name: newGame.name.trim(),
+        publisher: newGame.publisher.trim(),
+        region: newGame.region.trim(),
+        id_fields: newGame.idFields.filter(f => f.key.trim()),
+        sort_order: games.length + 1,
+        hot: false,
+        out_of_stock: false,
+      });
+      setNewGame({ ...emptyGameForm });
+      setShowNewGameForm(false);
+      await loadGames();
+    } catch (err) {
+      console.error('Add game failed:', err);
+      alert('បន្ថែមហ្គេមបរាជ័យ! សូមពិនិត្យ ID មិនស្ទួន។');
+    }
+    setSaving(false);
+  };
+
+  const deleteGame = async (gameId: string, gameName: string) => {
+    if (!confirm(`លុបហ្គេម "${gameName}" និងកញ្ចប់ទាំងអស់របស់វា?`)) return;
+    try {
+      await adminApiCall('delete_game', { id: gameId });
+      setGames(prev => prev.filter(g => g.id !== gameId));
+    } catch (err) {
+      console.error('Delete game failed:', err);
+    }
+  };
+
+  const addIdField = () => {
+    setNewGame(prev => ({ ...prev, idFields: [...prev.idFields, { key: '', label: '', placeholder: '' }] }));
+  };
+
+  const updateIdField = (index: number, field: string, value: string) => {
+    setNewGame(prev => ({
+      ...prev,
+      idFields: prev.idFields.map((f, i) => i === index ? { ...f, [field]: value } : f),
+    }));
+  };
+
+  const removeIdField = (index: number) => {
+    setNewGame(prev => ({ ...prev, idFields: prev.idFields.filter((_, i) => i !== index) }));
+  };
+
   // Login screen
   if (!authed) {
     return (
