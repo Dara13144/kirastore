@@ -4,8 +4,6 @@ const corsHeaders = {
 }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
-import { crypto } from 'https://deno.land/std@0.177.0/crypto/mod.ts'
-import { encodeHex } from 'https://deno.land/std@0.224.0/encoding/hex.ts'
 
 const RECEIVER_ACCOUNT = 'nyx_shop@bkjr'
 const MERCHANT_NAME = 'KiraStore'
