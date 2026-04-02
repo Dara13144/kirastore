@@ -90,6 +90,17 @@ const TopUp = () => {
     };
 
     addOrder(order);
+    
+    // Send Telegram notification for new order
+    sendTelegramNotification('new_order', {
+      id: order.id,
+      gameName: order.gameName,
+      packageName: order.packageName,
+      price: order.price,
+      playerName: order.playerName,
+      playerIds: order.playerIds,
+    });
+
     navigate(`/payment/${order.id}`);
   };
 
