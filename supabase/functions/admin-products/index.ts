@@ -45,9 +45,6 @@ Deno.serve(async (req) => {
     const body = req.method !== 'GET' ? await req.json() : null
     const action = body?.action || new URL(req.url).searchParams.get('action')
 
-  try {
-    const body = req.method !== 'GET' ? await req.json() : null
-
     switch (action) {
       // ===== GAMES =====
       case 'update_game': {

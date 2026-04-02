@@ -255,7 +255,7 @@ export async function adminApiCall(action: string, body?: any): Promise<any> {
   if (!adminAuth) throw new Error('Not authenticated as admin');
 
   const { data, error } = await supabase.functions.invoke('admin-products', {
-    body: body || {},
+    body: { action, ...(body || {}) },
     headers: {
       'x-admin-auth': adminAuth,
     },
