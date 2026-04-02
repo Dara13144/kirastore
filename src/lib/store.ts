@@ -40,39 +40,46 @@ export interface Order {
   transactionHash?: string;
 }
 
-// Mock username database for ID checking
-export const MOCK_USERNAMES: Record<string, Record<string, string>> = {
+// Mock username database for ID checking (supports zone verification)
+export interface MockUser {
+  username: string;
+  zoneId?: string;
+  level?: number;
+  server?: string;
+}
+
+export const MOCK_USERNAMES: Record<string, Record<string, MockUser>> = {
   'mlbb-kh': {
-    '58647857': 'ShadowHunter',
-    '12345678': 'DragonKing',
-    '99887766': 'MageMaster',
-    '11223344': 'WarriorQueen',
-    '55667788': 'NinjaStrike',
+    '58647857': { username: 'ShadowHunter', zoneId: '56744', level: 45, server: 'Cambodia-1' },
+    '12345678': { username: 'DragonKing', zoneId: '12001', level: 67, server: 'Cambodia-2' },
+    '99887766': { username: 'MageMaster', zoneId: '56744', level: 32, server: 'Cambodia-1' },
+    '11223344': { username: 'WarriorQueen', zoneId: '23456', level: 55, server: 'Cambodia-3' },
+    '55667788': { username: 'NinjaStrike', zoneId: '56744', level: 78, server: 'Cambodia-1' },
   },
   'mlbb-ph': {
-    '10001001': 'PhilGamer',
-    '10001002': 'ManilaKing',
+    '10001001': { username: 'PhilGamer', zoneId: '30001', level: 40, server: 'Philippines-1' },
+    '10001002': { username: 'ManilaKing', zoneId: '30002', level: 52, server: 'Philippines-2' },
   },
   'mlbb-id': {
-    '20001001': 'IndoHero',
-    '20001002': 'JakartaWarrior',
+    '20001001': { username: 'IndoHero', zoneId: '40001', level: 60, server: 'Indonesia-1' },
+    '20001002': { username: 'JakartaWarrior', zoneId: '40002', level: 38, server: 'Indonesia-2' },
   },
   'ff-kh': {
-    '1234567890': 'FireKhmer',
-    '9876543210': 'BattleRoyal',
-    '1111222233': 'StealthNinja',
+    '1234567890': { username: 'FireKhmer', level: 55, server: 'Garena-KH' },
+    '9876543210': { username: 'BattleRoyal', level: 42, server: 'Garena-KH' },
+    '1111222233': { username: 'StealthNinja', level: 30, server: 'Garena-KH' },
   },
   'ff-id': {
-    '3000100100': 'IndoFire',
+    '3000100100': { username: 'IndoFire', level: 48, server: 'Garena-ID' },
   },
   'ff-vn': {
-    '4000100100': 'VietFighter',
+    '4000100100': { username: 'VietFighter', level: 35, server: 'Garena-VN' },
   },
   'ff-tw': {
-    '5000100100': 'TaiwanFlame',
+    '5000100100': { username: 'TaiwanFlame', level: 29, server: 'Garena-TW' },
   },
   'magic-chess': {
-    '6000100100': 'ChessMaster',
+    '6000100100': { username: 'ChessMaster', level: 20, server: 'Global' },
   },
 };
 
