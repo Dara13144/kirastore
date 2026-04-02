@@ -133,8 +133,8 @@ const TopUp = () => {
     navigate(`/payment/${order.id}`);
   };
 
-  const bestSellers = game.packages.filter(p => p.category === 'best-seller');
-  const normals = game.packages.filter(p => p.category === 'normal');
+  const bestSellers = game.packages.filter(p => p.category === 'best-seller' && !p.disabled);
+  const normals = game.packages.filter(p => p.category === 'normal' && !p.disabled);
 
   return (
     <div className="min-h-screen bg-background">
