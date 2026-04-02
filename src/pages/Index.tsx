@@ -1,8 +1,11 @@
+import { Link } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import GameCard from '@/components/GameCard';
 import { GAMES } from '@/lib/store';
 import heroBanner from '@/assets/hero-banner.jpg';
+import promoMlbb from '@/assets/promo-mlbb.jpg';
+import promoFreefire from '@/assets/promo-freefire.jpg';
 
 const Index = () => {
   return (
@@ -12,6 +15,27 @@ const Index = () => {
       {/* Hero Banner */}
       <div className="animate-slide-down">
         <img src={heroBanner} alt="KIRA STORE - Diamond Top Up" className="w-full h-auto" width={1920} height={800} />
+      </div>
+
+      {/* Promotional Banners */}
+      <div className="container mx-auto px-4 py-4">
+        <div className="grid grid-cols-2 gap-3">
+          <Link to="/topup/mlbb-kh" className="game-card-hover block overflow-hidden rounded-lg shadow-green">
+            <img src={promoMlbb} alt="Mobile Legends Price List" className="w-full h-auto rounded-lg" loading="lazy" width={800} height={512} />
+          </Link>
+          <Link to="/topup/ff-kh" className="game-card-hover block overflow-hidden rounded-lg shadow-green">
+            <img src={promoFreefire} alt="Free Fire Diamond Recharge" className="w-full h-auto rounded-lg" loading="lazy" width={800} height={512} />
+          </Link>
+        </div>
+      </div>
+
+      {/* Game Section Title */}
+      <div className="bg-gradient-green-dark px-4 py-4 animate-fade-in">
+        <div className="container mx-auto">
+          <h1 className="font-heading text-xl font-bold text-primary-foreground">
+            ជ្រើសរើសហ្គេមពិសេស។
+          </h1>
+        </div>
       </div>
 
       <div className="container mx-auto px-4 py-6">
