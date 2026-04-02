@@ -101,7 +101,7 @@ const TopUp = () => {
       gameId: game.id,
       gameName: game.name,
       playerIds,
-      playerName: checkedName || undefined,
+      playerName: checkResult?.username || undefined,
       packageId: selectedPkg.id,
       packageName: selectedPkg.name,
       price: selectedPkg.price,
