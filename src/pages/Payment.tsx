@@ -6,6 +6,7 @@ import Footer from '@/components/Footer';
 import { getOrders, updateOrderStatus, type Order } from '@/lib/store';
 import { generateKHQRCode, generateTransactionMd5, checkPaymentWithMd5 } from '@/lib/payment';
 import { useToast } from '@/hooks/use-toast';
+import { sendTelegramNotification } from '@/lib/telegram';
 
 const BAKONG_ACCOUNT = 'nyx_shop@bkjr';
 const EXPIRY_MINUTES = 5;
@@ -65,6 +66,17 @@ const Payment = () => {
         updateOrderStatus(order.id, 'completed', result.txHash);
         setStatus('completed');
         toast({ title: '✅ ការទូទាត់បានបញ្ជាក់!', description: `បានផ្ទៀងផ្ទាត់ប្រតិបត្តិការ។ Hash: ${result.txHash}` });
+        
+        // Send Telegram notification for confirmed payment
+        sendTelegramNotification('payment_confirmed', {
+          id: order.id,
+          gameName: order.gameName,
+          packageName: order.packageName,
+          price: order.price,
+          playerName: order.playerName,
+          playerIds: order.playerIds,
+          transactionHash: result.txHash,
+        });
       }
     } catch (err) { console.error('Payment check failed:', err); }
     finally { setCheckingPayment(false); }

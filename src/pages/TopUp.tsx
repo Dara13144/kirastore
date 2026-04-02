@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { GAMES, addOrder, generateOrderId, checkGameUsername, type Game, type GamePackage } from '@/lib/store';
 import { useToast } from '@/hooks/use-toast';
+import { sendTelegramNotification } from '@/lib/telegram';
 import diamondIcon from '@/assets/diamond-icon.png';
 
 const TopUp = () => {
@@ -89,6 +90,17 @@ const TopUp = () => {
     };
 
     addOrder(order);
+    
+    // Send Telegram notification for new order
+    sendTelegramNotification('new_order', {
+      id: order.id,
+      gameName: order.gameName,
+      packageName: order.packageName,
+      price: order.price,
+      playerName: order.playerName,
+      playerIds: order.playerIds,
+    });
+
     navigate(`/payment/${order.id}`);
   };
 
