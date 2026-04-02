@@ -52,33 +52,41 @@ const TopUp = () => {
     setCheckResult(null);
     setCheckProgress(0);
 
-    // Simulate multi-step system check
-    const steps = [
-      { label: 'កំពុងភ្ជាប់ទៅម៉ាស៊ីនមេ...', progress: 25 },
-      { label: 'កំពុងផ្ទៀងផ្ទាត់ ID...', progress: 50 },
-      { label: 'កំពុងពិនិត្យ Zone/Server...', progress: 75 },
-      { label: 'កំពុងបញ្ជាក់គណនី...', progress: 100 },
-    ];
-
-    for (const step of steps) {
-      setCheckProgress(step.progress);
-      await new Promise(r => setTimeout(r, 400));
+    // Progress animation
+    const steps = [25, 50, 75];
+    for (const p of steps) {
+      setCheckProgress(p);
+      await new Promise(r => setTimeout(r, 300));
     }
 
-    const zoneId = playerIds['zoneId']?.trim() || undefined;
-    const result = checkGameUsername(game.id, mainId, zoneId);
-    
-    if (result.found) {
-      if (result.zoneMatch === false) {
-        setCheckResult(null);
-        setCheckError(`⚠️ Zone ID មិនត្រឹមត្រូវសម្រាប់គណនី "${mainId}". សូមពិនិត្យ Zone ID ម្តងទៀត។`);
-      } else {
-        setCheckResult(result);
-        setCheckError(null);
+    try {
+      const zoneId = playerIds['zoneId']?.trim() || undefined;
+      const { data, error } = await supabase.functions.invoke('verify-game-id', {
+        body: { gameId: game.id, userId: mainId, zoneId },
+      });
+
+      setCheckProgress(100);
+
+      if (error) {
+        throw new Error(error.message || 'Verification failed');
       }
-    } else {
+
+      if (data?.found) {
+        if (data.zoneMatch === false) {
+          setCheckResult(null);
+          setCheckError(`⚠️ Zone ID មិនត្រឹមត្រូវសម្រាប់គណនី "${mainId}". សូមពិនិត្យ Zone ID ម្តងទៀត។`);
+        } else {
+          setCheckResult(data as CheckResult);
+          setCheckError(null);
+        }
+      } else {
+        setCheckResult(null);
+        setCheckError(`រកមិនឃើញអ្នកប្រើប្រាស់សម្រាប់ ID "${mainId}".`);
+      }
+    } catch (err: any) {
+      console.error('Verification error:', err);
       setCheckResult(null);
-      setCheckError(`រកមិនឃើញអ្នកប្រើប្រាស់សម្រាប់ ID "${mainId}".`);
+      setCheckError('មានបញ្ហាក្នុងការភ្ជាប់ទៅប្រព័ន្ធផ្ទៀងផ្ទាត់។ សូមព្យាយាមម្តងទៀត។');
     }
     setCheckLoading(false);
   };
