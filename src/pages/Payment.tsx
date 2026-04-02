@@ -4,7 +4,7 @@ import { Clock, CheckCircle, XCircle, Copy, Loader2, ArrowLeft } from 'lucide-re
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { getOrderById, updateOrderStatus, type Order } from '@/lib/store';
-import { generateKHQRCode, generateTransactionMd5, checkPaymentWithMd5 } from '@/lib/payment';
+import { createBakongQR, checkBakongPayment } from '@/lib/payment';
 import { useToast } from '@/hooks/use-toast';
 import { sendTelegramNotification } from '@/lib/telegram';
 
@@ -24,6 +24,7 @@ const Payment = () => {
   const [qrLoading, setQrLoading] = useState(true);
   const [checkingPayment, setCheckingPayment] = useState(false);
   const [lastCheck, setLastCheck] = useState<string>('');
+  const [paymentMd5, setPaymentMd5] = useState<string>('');
 
   useEffect(() => {
     const loadOrder = async () => {
@@ -43,12 +44,20 @@ const Payment = () => {
     loadOrder();
   }, [orderId, navigate]);
 
+  // Generate real KHQR QR code via Bakong API
   useEffect(() => {
     if (!order || status !== 'pending') return;
     setQrLoading(true);
-    generateKHQRCode(order.price, order.id).then(qr => { setQrCode(qr); setQrLoading(false); }).catch(() => setQrLoading(false));
+    createBakongQR(order.price, order.id)
+      .then(result => {
+        setQrCode(result.qrImage);
+        setPaymentMd5(result.md5);
+        setQrLoading(false);
+      })
+      .catch(() => setQrLoading(false));
   }, [order, status]);
 
+  // Countdown timer
   useEffect(() => {
     if (status !== 'pending' || timeLeft <= 0) return;
     const timer = setInterval(() => {
@@ -60,12 +69,12 @@ const Payment = () => {
     return () => clearInterval(timer);
   }, [status, timeLeft, order]);
 
+  // Real payment check via Bakong MD5 API
   const performPaymentCheck = useCallback(async () => {
-    if (!order || status !== 'pending') return;
+    if (!order || status !== 'pending' || !paymentMd5) return;
     setCheckingPayment(true);
-    const hash = generateTransactionMd5(order.id, order.price);
     try {
-      const result = await checkPaymentWithMd5(order.id, order.price, hash);
+      const result = await checkBakongPayment(paymentMd5, order.id);
       setLastCheck(new Date().toLocaleTimeString());
       if (result.paid) {
         await updateOrderStatus(order.id, 'completed', result.txHash);
@@ -84,14 +93,15 @@ const Payment = () => {
       }
     } catch (err) { console.error('Payment check failed:', err); }
     finally { setCheckingPayment(false); }
-  }, [order, status, toast]);
+  }, [order, status, toast, paymentMd5]);
 
+  // Auto-check payment every 2 minutes, first check after 30s
   useEffect(() => {
-    if (status !== 'pending' || !order) return;
+    if (status !== 'pending' || !order || !paymentMd5) return;
     const initialTimeout = setTimeout(performPaymentCheck, 30000);
     const interval = setInterval(performPaymentCheck, CHECK_INTERVAL_SEC * 1000);
     return () => { clearTimeout(initialTimeout); clearInterval(interval); };
-  }, [status, order, performPaymentCheck]);
+  }, [status, order, performPaymentCheck, paymentMd5]);
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
   const copyAccount = () => { navigator.clipboard.writeText(BAKONG_ACCOUNT); toast({ title: 'បានចម្លង!', description: 'គណនី Bakong បានចម្លង' }); };
@@ -109,7 +119,6 @@ const Payment = () => {
   }
 
   if (!order) return null;
-  const md5Hash = generateTransactionMd5(order.id, order.price);
 
   return (
     <div className="min-h-screen bg-background">
@@ -198,10 +207,12 @@ const Payment = () => {
                     <span className="font-bold text-success">{order.playerName}</span>
                   </div>
                 )}
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">MD5 Hash</span>
-                  <span className="font-mono text-xs text-muted-foreground">{md5Hash.substring(0, 16)}...</span>
-                </div>
+                {paymentMd5 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">MD5 Hash</span>
+                    <span className="font-mono text-xs text-muted-foreground">{paymentMd5.substring(0, 16)}...</span>
+                  </div>
+                )}
                 {lastCheck && (
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">ពិនិត្យចុងក្រោយ</span>
