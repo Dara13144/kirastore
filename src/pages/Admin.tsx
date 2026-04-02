@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Shield, CheckCircle, XCircle, Clock, RefreshCw, LogOut, Package, Settings, Plus, Trash2, Image, Edit3, Save, Upload, Send, Power, PowerOff, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Shield, CheckCircle, XCircle, Clock, RefreshCw, LogOut, Package, Settings, Plus, Trash2, Image, Edit3, Save, Upload, Send, Power, PowerOff, Eye, EyeOff, Loader2, GamepadIcon, X } from 'lucide-react';
 import { fetchGamesWithPackages, adminApiCall, type Order, type Game, type GamePackage } from '@/lib/store';
 import { getTelegramChatId, setTelegramChatId, sendTelegramNotification } from '@/lib/telegram';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +15,22 @@ const statusConfig = {
 };
 
 type Tab = 'orders' | 'products' | 'settings';
+
+interface NewGameForm {
+  id: string;
+  name: string;
+  publisher: string;
+  region: string;
+  idFields: { key: string; label: string; placeholder: string }[];
+}
+
+const emptyGameForm: NewGameForm = {
+  id: '',
+  name: '',
+  publisher: '',
+  region: '',
+  idFields: [{ key: 'userId', label: 'USER ID', placeholder: '12345678' }],
+};
 
 const Admin = () => {
   const [authed, setAuthed] = useState(false);
@@ -34,6 +50,9 @@ const Admin = () => {
   const pkgImageInputRef = useRef<HTMLInputElement>(null);
   const [uploadTarget, setUploadTarget] = useState<{ gameId: string; field: 'icon' | 'banner' } | null>(null);
   const [pkgUploadTarget, setPkgUploadTarget] = useState<{ gameId: string; pkgId: string } | null>(null);
+  const [showNewGameForm, setShowNewGameForm] = useState(false);
+  const [newGame, setNewGame] = useState<NewGameForm>({ ...emptyGameForm });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const session = localStorage.getItem('kira_admin_session');
