@@ -286,8 +286,17 @@ const TopUp = () => {
                         {pkg.tag}
                       </span>
                     )}
-                    <p className="text-sm font-bold text-foreground">{pkg.name}</p>
-                    <p className="text-sm font-bold text-primary">$ {pkg.price.toFixed(2)}</p>
+                    <div className="flex items-center gap-2">
+                      {pkg.image ? (
+                        <img src={pkg.image} alt="" className="h-8 w-8 rounded-lg object-cover shrink-0" loading="lazy" />
+                      ) : (
+                        <img src={diamondIcon} alt="" className="h-8 w-8 shrink-0 animate-float" loading="lazy" />
+                      )}
+                      <div>
+                        <p className="text-sm font-bold text-foreground">{pkg.name}</p>
+                        <p className="text-sm font-bold text-primary">$ {pkg.price.toFixed(2)}</p>
+                      </div>
+                    </div>
                   </button>
                 ))}
               </div>
