@@ -195,6 +195,7 @@ const Admin = () => {
       {/* Hidden file inputs */}
       <input ref={iconInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
       <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageUpload} />
+      <input ref={pkgImageInputRef} type="file" accept="image/*" className="hidden" onChange={handlePkgImageUpload} />
 
       {/* Header */}
       <div className="bg-gradient-green px-4 py-4">
