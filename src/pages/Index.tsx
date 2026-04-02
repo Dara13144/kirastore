@@ -11,7 +11,8 @@ const Index = () => {
   const { data: allGames = [], isLoading } = useQuery({
     queryKey: ['games'],
     queryFn: fetchGamesWithPackages,
-    staleTime: 30000,
+    staleTime: 10000,
+    refetchOnWindowFocus: true,
   });
 
   return (
