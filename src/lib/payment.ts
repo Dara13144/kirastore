@@ -12,7 +12,6 @@ export async function createBakongQR(amount: number, orderId: string): Promise<{
 
   if (error) {
     console.error('Failed to create Bakong QR:', error);
-    // Fallback to local QR generation
     const fallbackQr = await generateLocalKHQRCode(amount, orderId);
     return { qr: '', md5: '', qrImage: fallbackQr };
   }
@@ -28,10 +27,14 @@ export async function createBakongQR(amount: number, orderId: string): Promise<{
   return { qr: data.qr, md5: data.md5, qrImage };
 }
 
-// Check payment status via Bakong API (real MD5 verification)
-export async function checkBakongPayment(md5: string, orderId: string): Promise<{ paid: boolean; txHash?: string }> {
+// Check payment status via Bakong API (real MD5 verification) with backend expiry check
+export async function checkBakongPayment(
+  md5: string,
+  orderId: string,
+  createdAt?: string
+): Promise<{ paid: boolean; txHash?: string; expired?: boolean }> {
   const { data, error } = await supabase.functions.invoke('bakong-payment', {
-    body: { action: 'check_payment', md5, orderId },
+    body: { action: 'check_payment', md5, orderId, createdAt },
   });
 
   if (error) {
@@ -42,6 +45,7 @@ export async function checkBakongPayment(md5: string, orderId: string): Promise<
   return {
     paid: data.paid || false,
     txHash: data.hash,
+    expired: data.expired || false,
   };
 }
 

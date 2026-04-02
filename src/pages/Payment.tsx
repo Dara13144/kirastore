@@ -6,11 +6,10 @@ import Footer from '@/components/Footer';
 import { getOrderById, updateOrderStatus, type Order } from '@/lib/store';
 import { createBakongQR, checkBakongPayment } from '@/lib/payment';
 import { useToast } from '@/hooks/use-toast';
-import { sendTelegramNotification } from '@/lib/telegram';
 
 const BAKONG_ACCOUNT = 'nyx_shop@bkjr';
 const EXPIRY_MINUTES = 5;
-const CHECK_INTERVAL_SEC = 120;
+const CHECK_INTERVAL_MS = 5000; // Check every 5 seconds
 
 const Payment = () => {
   const { orderId } = useParams<{ orderId: string }>();
@@ -26,6 +25,7 @@ const Payment = () => {
   const [lastCheck, setLastCheck] = useState<string>('');
   const [paymentMd5, setPaymentMd5] = useState<string>('');
 
+  // Load order
   useEffect(() => {
     const loadOrder = async () => {
       if (!orderId) { navigate('/'); return; }
@@ -62,7 +62,11 @@ const Payment = () => {
     if (status !== 'pending' || timeLeft <= 0) return;
     const timer = setInterval(() => {
       setTimeLeft(prev => {
-        if (prev <= 1) { clearInterval(timer); if (order) { updateOrderStatus(order.id, 'expired'); setStatus('expired'); } return 0; }
+        if (prev <= 1) {
+          clearInterval(timer);
+          if (order) { updateOrderStatus(order.id, 'expired'); setStatus('expired'); }
+          return 0;
+        }
         return prev - 1;
       });
     }, 1000);
@@ -74,32 +78,32 @@ const Payment = () => {
     if (!order || status !== 'pending' || !paymentMd5) return;
     setCheckingPayment(true);
     try {
-      const result = await checkBakongPayment(paymentMd5, order.id);
+      const result = await checkBakongPayment(paymentMd5, order.id, order.createdAt);
       setLastCheck(new Date().toLocaleTimeString());
+
+      if (result.expired) {
+        setStatus('expired');
+        toast({ title: '⏰ QR ផុតកំណត់', description: 'សូមបង្កើតការបញ្ជាទិញថ្មី' });
+        return;
+      }
+
       if (result.paid) {
         await updateOrderStatus(order.id, 'completed', result.txHash);
         setStatus('completed');
-        toast({ title: '✅ ការទូទាត់បានបញ្ជាក់!', description: `បានផ្ទៀងផ្ទាត់ប្រតិបត្តិការ។ Hash: ${result.txHash}` });
-        
-        sendTelegramNotification('payment_confirmed', {
-          id: order.id,
-          gameName: order.gameName,
-          packageName: order.packageName,
-          price: order.price,
-          playerName: order.playerName,
-          playerIds: order.playerIds,
-          transactionHash: result.txHash,
-        });
+        toast({ title: '✅ ការទូទាត់បានបញ្ជាក់!', description: `TX: ${result.txHash}` });
+        // Telegram notification is sent automatically by the edge function
       }
     } catch (err) { console.error('Payment check failed:', err); }
     finally { setCheckingPayment(false); }
   }, [order, status, toast, paymentMd5]);
 
-  // Auto-check payment every 2 minutes, first check after 30s
+  // Auto-check payment every 5 seconds
   useEffect(() => {
     if (status !== 'pending' || !order || !paymentMd5) return;
-    const initialTimeout = setTimeout(performPaymentCheck, 30000);
-    const interval = setInterval(performPaymentCheck, CHECK_INTERVAL_SEC * 1000);
+    // First check after 3 seconds
+    const initialTimeout = setTimeout(performPaymentCheck, 3000);
+    // Then every 5 seconds
+    const interval = setInterval(performPaymentCheck, CHECK_INTERVAL_MS);
     return () => { clearTimeout(initialTimeout); clearInterval(interval); };
   }, [status, order, performPaymentCheck, paymentMd5]);
 
@@ -130,11 +134,11 @@ const Payment = () => {
 
         <div className="rounded-t-2xl bg-accent px-6 py-4 animate-slide-down">
           <div className="flex items-center justify-between">
-            <h2 className="font-heading text-lg font-bold text-accent-foreground">ការទូទាត់</h2>
+            <h2 className="font-heading text-lg font-bold text-accent-foreground">ការទូទាត់ Bakong KHQR</h2>
             {status === 'pending' && (
-              <div className="flex items-center gap-2 rounded-full bg-accent-foreground/20 px-3 py-1">
-                <Clock className="h-4 w-4 text-accent-foreground animate-pulse-slow" />
-                <span className="font-heading text-sm font-bold text-accent-foreground">{formatTime(timeLeft)}</span>
+              <div className={`flex items-center gap-2 rounded-full px-3 py-1 ${timeLeft <= 60 ? 'bg-destructive/20' : 'bg-accent-foreground/20'}`}>
+                <Clock className={`h-4 w-4 ${timeLeft <= 60 ? 'text-destructive animate-pulse' : 'text-accent-foreground animate-pulse-slow'}`} />
+                <span className={`font-heading text-sm font-bold ${timeLeft <= 60 ? 'text-destructive' : 'text-accent-foreground'}`}>{formatTime(timeLeft)}</span>
               </div>
             )}
           </div>
@@ -154,8 +158,14 @@ const Payment = () => {
                     <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   </div>
                 ) : (
-                  <div className="overflow-hidden rounded-2xl border-4 border-primary/20 bg-white p-2 shadow-green animate-scale-in">
+                  <div className="relative overflow-hidden rounded-2xl border-4 border-primary/20 bg-white p-2 shadow-green animate-scale-in">
                     <img src={qrCode} alt="KHQR Payment" className="h-[280px] w-[280px]" />
+                    {timeLeft <= 0 && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center rounded-2xl bg-background/80">
+                        <XCircle className="h-12 w-12 text-destructive" />
+                        <p className="mt-2 font-bold text-destructive">QR ផុតកំណត់!</p>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
@@ -175,7 +185,7 @@ const Payment = () => {
                       <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75"></span>
                       <span className="relative inline-flex h-3 w-3 rounded-full bg-primary"></span>
                     </span>
-                    កំពុងរង់ចាំការទូទាត់...
+                    កំពុងរង់ចាំការបង់ប្រាក់ពី Bakong App...
                   </span>
                 )}
               </div>
@@ -209,7 +219,7 @@ const Payment = () => {
                 )}
                 {paymentMd5 && (
                   <div className="flex justify-between">
-                    <span className="text-muted-foreground">MD5 Hash</span>
+                    <span className="text-muted-foreground">MD5</span>
                     <span className="font-mono text-xs text-muted-foreground">{paymentMd5.substring(0, 16)}...</span>
                   </div>
                 )}
@@ -222,7 +232,7 @@ const Payment = () => {
               </div>
 
               <p className="mt-4 text-center text-xs text-muted-foreground">
-                ⚠️ ផ្ទៀងផ្ទាត់ស្វ័យប្រវត្តិរៀងរាល់ 2 នាទី • ផុតកំណត់ក្នុង {EXPIRY_MINUTES} នាទី
+                ⚠️ ផ្ទៀងផ្ទាត់ស្វ័យប្រវត្តិរៀងរាល់ 5 វិនាទី • ផុតកំណត់ក្នុង {EXPIRY_MINUTES} នាទី
               </p>
             </div>
           )}
@@ -232,7 +242,8 @@ const Payment = () => {
               <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-success/10 animate-bounce-once">
                 <CheckCircle className="h-10 w-10 text-success" />
               </div>
-              <h2 className="mb-2 font-heading text-2xl font-bold text-success">ការទូទាត់បានបញ្ជាក់!</h2>
+              <h2 className="mb-2 font-heading text-2xl font-bold text-success">បង់ប្រាក់ជោគជ័យ!</h2>
+              <p className="mb-1 text-sm text-muted-foreground">Diamonds នឹងត្រូវបានផ្ញើជូនភ្លាមៗ</p>
               <p className="mb-1 text-sm text-muted-foreground">Order: <span className="font-mono">{order.id}</span></p>
               <p className="mb-1 text-sm text-muted-foreground">{order.gameName} • {order.packageName}</p>
               {order.transactionHash && (
@@ -250,7 +261,7 @@ const Payment = () => {
                 <XCircle className="h-10 w-10 text-destructive" />
               </div>
               <h2 className="mb-2 font-heading text-2xl font-bold text-destructive">
-                {status === 'expired' ? 'ការទូទាត់ផុតកំណត់' : 'ការទូទាត់បរាជ័យ'}
+                {status === 'expired' ? 'QR ផុតកំណត់ហើយ' : 'ការទូទាត់បរាជ័យ'}
               </h2>
               <p className="mb-6 text-sm text-muted-foreground">សូមព្យាយាមម្ដងទៀតជាមួយការបញ្ជាទិញថ្មី។</p>
               <button onClick={() => navigate('/')} className="rounded-xl bg-gradient-green px-8 py-3 font-heading text-sm font-bold text-primary-foreground shadow-green transition-transform hover:scale-105">

@@ -10,6 +10,8 @@ import { encodeHex } from 'https://deno.land/std@0.224.0/encoding/hex.ts'
 const RECEIVER_ACCOUNT = 'nyx_shop@bkjr'
 const MERCHANT_NAME = 'KiraStore'
 const CHECK_API_URL = 'https://api-bakong.nbc.gov.kh/v1/check_transaction_by_md5'
+const TELEGRAM_GATEWAY_URL = 'https://connector-gateway.lovable.dev/telegram'
+const EXPIRY_SECONDS = 300 // 5 minutes
 
 function getSupabase() {
   return createClient(
@@ -18,7 +20,8 @@ function getSupabase() {
   )
 }
 
-// Generate KHQR QR string (EMV QR Code format)
+// ========== KHQR Generation ==========
+
 function generateKHQRString(amount: number, billNumber: string): string {
   const tags: [string, string][] = [
     ['00', '01'],
@@ -71,14 +74,16 @@ function computeCRC16(str: string): string {
   return crc.toString(16).toUpperCase().padStart(4, '0')
 }
 
-// MD5 hash using Deno std crypto (extends WebCrypto with MD5 support)
+// ========== MD5 Hash ==========
+
 async function generateMD5(input: string): Promise<string> {
   const data = new TextEncoder().encode(input)
   const hashBuffer = await crypto.subtle.digest('MD5', data)
   return encodeHex(new Uint8Array(hashBuffer))
 }
 
-// Check payment status via Bakong API
+// ========== Bakong Payment Check ==========
+
 async function checkPaymentByMD5(md5: string): Promise<{ paid: boolean; hash?: string; data?: any }> {
   const BAKONG_TOKEN = Deno.env.get('BAKONG_TOKEN')
   if (!BAKONG_TOKEN) {
@@ -97,7 +102,7 @@ async function checkPaymentByMD5(md5: string): Promise<{ paid: boolean; hash?: s
     })
 
     const result = await response.json()
-    
+
     if (result.responseCode === 0 && result.data) {
       return {
         paid: true,
@@ -113,15 +118,99 @@ async function checkPaymentByMD5(md5: string): Promise<{ paid: boolean; hash?: s
   }
 }
 
+// ========== Telegram Notification ==========
+
+async function sendTelegramNotification(
+  type: 'new_order' | 'payment_confirmed' | 'payment_expired',
+  order: any,
+  txHash?: string,
+): Promise<void> {
+  const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY')
+  const TELEGRAM_API_KEY = Deno.env.get('TELEGRAM_API_KEY')
+
+  if (!LOVABLE_API_KEY || !TELEGRAM_API_KEY) {
+    console.warn('Telegram keys not configured, skipping notification')
+    return
+  }
+
+  // Get admin chat ID from order metadata or env
+  const supabase = getSupabase()
+  // Try to find chat_id - we'll use a hardcoded admin chat for now
+  // In production, store this in a settings table
+  const ADMIN_CHAT_ID = '5169380878'
+
+  let message = ''
+  const time = new Date().toLocaleString('en-US', { timeZone: 'Asia/Phnom_Penh' })
+
+  if (type === 'payment_confirmed') {
+    message = [
+      '💰 <b>ការបង់ប្រាក់ថ្មីពី Website!</b>',
+      '━━━━━━━━━━━━━━━',
+      `📋 Order: <code>${order.id}</code>`,
+      `🎮 ហ្គេម: ${order.game_name}`,
+      `📦 កញ្ចប់: ${order.package_name}`,
+      `💵 ចំនួន: <b>$${Number(order.price).toFixed(2)}</b>`,
+      `👤 អ្នកលេង: ${order.player_name || 'N/A'}`,
+      txHash ? `🔗 TX: <code>${txHash}</code>` : '',
+      `⏰ ${time}`,
+      '━━━━━━━━━━━━━━━',
+      '✅ <b>ស្ថានភាព: បង់រួចរាល់ (PAID)</b>',
+    ].filter(Boolean).join('\n')
+  } else if (type === 'new_order') {
+    message = [
+      '🛒 <b>ការបញ្ជាទិញថ្មី!</b>',
+      '',
+      `📋 Order: <code>${order.id}</code>`,
+      `🎮 ហ្គេម: ${order.game_name}`,
+      `📦 កញ្ចប់: ${order.package_name}`,
+      `💵 ចំនួន: <b>$${Number(order.price).toFixed(2)}</b>`,
+      `👤 អ្នកលេង: ${order.player_name || 'N/A'}`,
+      `⏰ ${time}`,
+      '',
+      '⏳ កំពុងរង់ចាំការទូទាត់...',
+    ].join('\n')
+  } else if (type === 'payment_expired') {
+    message = [
+      '❌ <b>ការទូទាត់ផុតកំណត់</b>',
+      '',
+      `📋 Order: <code>${order.id}</code>`,
+      `🎮 ហ្គេម: ${order.game_name}`,
+      `💵 ចំនួន: $${Number(order.price).toFixed(2)}`,
+      `⏰ ${time}`,
+    ].join('\n')
+  }
+
+  try {
+    await fetch(`${TELEGRAM_GATEWAY_URL}/sendMessage`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'X-Connection-Api-Key': TELEGRAM_API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        chat_id: ADMIN_CHAT_ID,
+        text: message,
+        parse_mode: 'HTML',
+      }),
+    })
+  } catch (err) {
+    console.error('Telegram notification failed:', err)
+  }
+}
+
+// ========== Main Handler ==========
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { action, amount, orderId, md5 } = await req.json()
+    const { action, amount, orderId, md5, createdAt } = await req.json()
 
     switch (action) {
+      // ===== Create QR Code =====
       case 'create_qr': {
         if (!amount || !orderId) {
           return new Response(JSON.stringify({ error: 'Missing amount or orderId' }), {
@@ -136,6 +225,12 @@ Deno.serve(async (req) => {
         const supabase = getSupabase()
         await supabase.from('orders').update({ transaction_hash: `md5:${qrMd5}` }).eq('id', orderId)
 
+        // Fetch order for Telegram notification
+        const { data: orderData } = await supabase.from('orders').select('*').eq('id', orderId).single()
+        if (orderData) {
+          sendTelegramNotification('new_order', orderData)
+        }
+
         return new Response(JSON.stringify({
           qr: khqrString,
           md5: qrMd5,
@@ -145,6 +240,7 @@ Deno.serve(async (req) => {
         })
       }
 
+      // ===== Check Payment Status =====
       case 'check_payment': {
         if (!md5) {
           return new Response(JSON.stringify({ error: 'Missing md5' }), {
@@ -153,14 +249,43 @@ Deno.serve(async (req) => {
           })
         }
 
+        // Backend-side expiry check (5 minutes)
+        if (createdAt) {
+          const now = Math.floor(Date.now() / 1000)
+          const created = Math.floor(new Date(createdAt).getTime() / 1000)
+          if (now - created > EXPIRY_SECONDS) {
+            // Mark as expired in DB
+            if (orderId) {
+              const supabase = getSupabase()
+              const { data: orderData } = await supabase.from('orders').select('*').eq('id', orderId).single()
+              if (orderData && orderData.status === 'pending') {
+                await supabase.from('orders').update({ status: 'expired' }).eq('id', orderId)
+                sendTelegramNotification('payment_expired', orderData)
+              }
+            }
+            return new Response(JSON.stringify({ paid: false, expired: true, message: 'QR Code ផុតកំណត់ហើយ' }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            })
+          }
+        }
+
+        // Check with Bakong API
         const result = await checkPaymentByMD5(md5)
 
         if (result.paid && orderId) {
           const supabase = getSupabase()
+          const txHash = result.hash || `BK_${Date.now().toString(36).toUpperCase()}`
+
           await supabase.from('orders').update({
             status: 'completed',
-            transaction_hash: result.hash || `BK_${Date.now().toString(36)}`,
+            transaction_hash: txHash,
           }).eq('id', orderId)
+
+          // Send Telegram notification for successful payment
+          const { data: orderData } = await supabase.from('orders').select('*').eq('id', orderId).single()
+          if (orderData) {
+            sendTelegramNotification('payment_confirmed', orderData, txHash)
+          }
         }
 
         return new Response(JSON.stringify({
