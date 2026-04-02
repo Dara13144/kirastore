@@ -279,9 +279,28 @@ export function generateOrderId(): string {
   return 'KS-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).substring(2, 6).toUpperCase();
 }
 
-export function checkGameUsername(gameId: string, mainId: string): { found: boolean; username: string } {
+export interface CheckResult {
+  found: boolean;
+  username: string;
+  level?: number;
+  server?: string;
+  zoneMatch?: boolean;
+}
+
+export function checkGameUsername(gameId: string, mainId: string, zoneId?: string): CheckResult {
   const db = MOCK_USERNAMES[gameId];
   if (!db) return { found: false, username: '' };
-  const name = db[mainId];
-  return name ? { found: true, username: name } : { found: false, username: '' };
+  const user = db[mainId];
+  if (!user) return { found: false, username: '' };
+  
+  // If game requires zone and zone was provided, verify it matches
+  const zoneMatch = user.zoneId ? (zoneId === user.zoneId) : true;
+  
+  return {
+    found: true,
+    username: user.username,
+    level: user.level,
+    server: user.server,
+    zoneMatch,
+  };
 }
