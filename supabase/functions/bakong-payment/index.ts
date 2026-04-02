@@ -4,8 +4,8 @@ const corsHeaders = {
 }
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+import { encode as hexEncode } from 'https://deno.land/std@0.224.0/encoding/hex.ts'
 
-const BAKONG_TOKEN = Deno.env.get('BAKONG_TOKEN')!
 const RECEIVER_ACCOUNT = 'nyx_shop@bkjr'
 const MERCHANT_NAME = 'KiraStore'
 const CHECK_API_URL = 'https://api-bakong.nbc.gov.kh/v1/check_transaction_by_md5'
@@ -17,19 +17,19 @@ function getSupabase() {
   )
 }
 
-// Generate KHQR QR string manually (EMV QR Code format)
+// Generate KHQR QR string (EMV QR Code format)
 function generateKHQRString(amount: number, billNumber: string): string {
   const tags: [string, string][] = [
-    ['00', '01'],                          // Payload Format Indicator
-    ['01', '12'],                          // Point of Initiation (dynamic)
-    ['29', buildMerchantAccount()],         // Merchant Account (tag 29 for Bakong)
-    ['52', '5999'],                         // Merchant Category Code
-    ['53', '840'],                          // Transaction Currency (USD)
-    ['54', amount.toFixed(2)],              // Transaction Amount
-    ['58', 'KH'],                           // Country Code
-    ['59', MERCHANT_NAME],                  // Merchant Name
-    ['60', 'Phnom Penh'],                   // Merchant City
-    ['62', buildAdditionalData(billNumber)], // Additional Data
+    ['00', '01'],
+    ['01', '12'],
+    ['29', buildMerchantAccount()],
+    ['52', '5999'],
+    ['53', '840'],
+    ['54', amount.toFixed(2)],
+    ['58', 'KH'],
+    ['59', MERCHANT_NAME],
+    ['60', 'Phnom Penh'],
+    ['62', buildAdditionalData(billNumber)],
   ]
 
   let payload = ''
@@ -37,26 +37,21 @@ function generateKHQRString(amount: number, billNumber: string): string {
     payload += id + String(value.length).padStart(2, '0') + value
   }
 
-  // Add CRC placeholder
   payload += '6304'
   const crc = computeCRC16(payload)
   return payload + crc
 }
 
 function buildMerchantAccount(): string {
-  const bakongId = RECEIVER_ACCOUNT
-  const acqBank = 'JTR'
   let sub = ''
   sub += '00' + String('bakong'.length).padStart(2, '0') + 'bakong'
-  sub += '01' + String(bakongId.length).padStart(2, '0') + bakongId
-  sub += '02' + String(acqBank.length).padStart(2, '0') + acqBank
+  sub += '01' + String(RECEIVER_ACCOUNT.length).padStart(2, '0') + RECEIVER_ACCOUNT
+  sub += '02' + String('JTR'.length).padStart(2, '0') + 'JTR'
   return sub
 }
 
 function buildAdditionalData(billNumber: string): string {
-  let sub = ''
-  sub += '01' + String(billNumber.length).padStart(2, '0') + billNumber
-  return sub
+  return '01' + String(billNumber.length).padStart(2, '0') + billNumber
 }
 
 function computeCRC16(str: string): string {
@@ -75,17 +70,23 @@ function computeCRC16(str: string): string {
   return crc.toString(16).toUpperCase().padStart(4, '0')
 }
 
-// Generate MD5 hash of the QR string
+// MD5 hash using Deno's std library (crypto.subtle doesn't support MD5)
 async function generateMD5(input: string): Promise<string> {
-  const encoder = new TextEncoder()
-  const data = encoder.encode(input)
-  const hashBuffer = await crypto.subtle.digest('MD5', data)
+  const { crypto: denoCrypto } = await import('https://deno.land/std@0.224.0/crypto/mod.ts')
+  const data = new TextEncoder().encode(input)
+  const hashBuffer = await denoCrypto.subtle.digest('MD5', data)
   const hashArray = Array.from(new Uint8Array(hashBuffer))
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
 // Check payment status via Bakong API
 async function checkPaymentByMD5(md5: string): Promise<{ paid: boolean; hash?: string; data?: any }> {
+  const BAKONG_TOKEN = Deno.env.get('BAKONG_TOKEN')
+  if (!BAKONG_TOKEN) {
+    console.error('BAKONG_TOKEN not configured')
+    return { paid: false }
+  }
+
   try {
     const response = await fetch(CHECK_API_URL, {
       method: 'POST',
@@ -98,11 +99,10 @@ async function checkPaymentByMD5(md5: string): Promise<{ paid: boolean; hash?: s
 
     const result = await response.json()
     
-    // responseCode 0 = success/paid, 1 = not found/pending
     if (result.responseCode === 0 && result.data) {
       return {
         paid: true,
-        hash: result.data.hash || result.data.txHash || `BK_${Date.now().toString(36).toUpperCase()}`,
+        hash: result.data.hash || `BK_${Date.now().toString(36).toUpperCase()}`,
         data: result.data,
       }
     }
@@ -134,7 +134,6 @@ Deno.serve(async (req) => {
         const khqrString = generateKHQRString(Number(amount), orderId)
         const qrMd5 = await generateMD5(khqrString)
 
-        // Store MD5 in the order record
         const supabase = getSupabase()
         await supabase.from('orders').update({ transaction_hash: `md5:${qrMd5}` }).eq('id', orderId)
 
@@ -157,7 +156,6 @@ Deno.serve(async (req) => {
 
         const result = await checkPaymentByMD5(md5)
 
-        // If paid, update order status
         if (result.paid && orderId) {
           const supabase = getSupabase()
           await supabase.from('orders').update({

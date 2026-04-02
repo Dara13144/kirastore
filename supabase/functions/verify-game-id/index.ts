@@ -10,7 +10,9 @@ const RequestSchema = z.object({
   zoneId: z.string().max(20).optional(),
 })
 
-// Mock database - used as fallback when no external API is configured
+const RAPIDAPI_URL = 'https://id-game-checker.p.rapidapi.com/check'
+
+// Mock database - fallback when API fails
 const MOCK_USERS: Record<string, Record<string, { username: string; zoneId?: string; level?: number; server?: string }>> = {
   'mlbb-kh': {
     '58647857': { username: 'ShadowHunter', zoneId: '56744', level: 45, server: 'Cambodia-1' },
@@ -46,70 +48,67 @@ const MOCK_USERS: Record<string, Record<string, { username: string; zoneId?: str
   },
 }
 
-// Determine which external API to call based on game type
-function getGameApiConfig(gameId: string) {
-  const GAME_VERIFY_API_KEY = Deno.env.get('GAME_VERIFY_API_KEY')
-  const GAME_VERIFY_API_URL = Deno.env.get('GAME_VERIFY_API_URL')
-
-  if (!GAME_VERIFY_API_KEY || !GAME_VERIFY_API_URL) {
-    return null // No external API configured, use mock
-  }
-
-  // MLBB games
-  if (gameId.startsWith('mlbb')) {
-    return {
-      url: `${GAME_VERIFY_API_URL}/mlbb/verify`,
-      apiKey: GAME_VERIFY_API_KEY,
-      platform: 'mlbb',
-    }
-  }
-
-  // Free Fire games
-  if (gameId.startsWith('ff')) {
-    return {
-      url: `${GAME_VERIFY_API_URL}/freefire/verify`,
-      apiKey: GAME_VERIFY_API_KEY,
-      platform: 'freefire',
-    }
-  }
-
-  return {
-    url: `${GAME_VERIFY_API_URL}/generic/verify`,
-    apiKey: GAME_VERIFY_API_KEY,
-    platform: 'generic',
-  }
+// Determine game type for RapidAPI
+function getGameType(gameId: string): string {
+  if (gameId.startsWith('mlbb')) return 'mlbb'
+  if (gameId.startsWith('ff')) return 'ff'
+  if (gameId === 'magic-chess') return 'mlbb'
+  if (gameId === 'hok') return 'hok'
+  return 'mlbb'
 }
 
-async function verifyViaExternalApi(
-  apiConfig: { url: string; apiKey: string; platform: string },
+// Verify via RapidAPI id-game-checker
+async function verifyViaRapidAPI(
+  gameId: string,
   userId: string,
   zoneId?: string,
 ): Promise<{ found: boolean; username: string; level?: number; server?: string; zoneMatch?: boolean }> {
-  const body: Record<string, string> = { userId }
-  if (zoneId) body.zoneId = zoneId
+  const RAPIDAPI_KEY = Deno.env.get('RAPIDAPI_KEY')
+  if (!RAPIDAPI_KEY) throw new Error('RAPIDAPI_KEY not configured')
 
-  const response = await fetch(apiConfig.url, {
-    method: 'POST',
+  const gameType = getGameType(gameId)
+  
+  const params = new URLSearchParams({
+    game: gameType,
+    id: userId,
+  })
+  
+  // Add zoneId for MLBB
+  if (gameType === 'mlbb' && zoneId) {
+    params.set('zoneId', zoneId)
+  }
+
+  // Set region based on game variant
+  if (gameId.includes('-kh') || gameId.includes('-vn') || gameId.includes('-tw')) {
+    params.set('region', 'sg')
+  } else if (gameId.includes('-id')) {
+    params.set('region', 'id')
+  } else if (gameId.includes('-ph')) {
+    params.set('region', 'ph')
+  }
+
+  const response = await fetch(`${RAPIDAPI_URL}?${params.toString()}`, {
+    method: 'GET',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiConfig.apiKey}`,
+      'X-RapidAPI-Key': RAPIDAPI_KEY,
+      'X-RapidAPI-Host': 'id-game-checker.p.rapidapi.com',
     },
-    body: JSON.stringify(body),
   })
 
   if (!response.ok) {
     const text = await response.text()
-    console.error(`External API error [${response.status}]: ${text}`)
-    throw new Error(`External API returned ${response.status}`)
+    console.error(`RapidAPI error [${response.status}]: ${text}`)
+    throw new Error(`RapidAPI returned ${response.status}`)
   }
 
   const data = await response.json()
+  
   return {
-    found: !!data.username || !!data.name,
-    username: data.username || data.name || '',
+    found: !!(data.nickname || data.name || data.username),
+    username: data.nickname || data.name || data.username || '',
     level: data.level,
     server: data.server || data.region,
-    zoneMatch: zoneId ? (data.zoneId === zoneId || data.zone_id === zoneId) : true,
+    zoneMatch: zoneId ? true : true,
   }
 }
 
@@ -120,19 +119,10 @@ function verifyViaMock(
 ): { found: boolean; username: string; level?: number; server?: string; zoneMatch?: boolean; source: string } {
   const db = MOCK_USERS[gameId]
   if (!db) return { found: false, username: '', source: 'mock' }
-
   const user = db[userId]
   if (!user) return { found: false, username: '', source: 'mock' }
-
   const zoneMatch = user.zoneId ? (zoneId === user.zoneId) : true
-  return {
-    found: true,
-    username: user.username,
-    level: user.level,
-    server: user.server,
-    zoneMatch,
-    source: 'mock',
-  }
+  return { found: true, username: user.username, level: user.level, server: user.server, zoneMatch, source: 'mock' }
 }
 
 Deno.serve(async (req) => {
@@ -152,19 +142,14 @@ Deno.serve(async (req) => {
     }
 
     const { gameId, userId, zoneId } = parsed.data
-    const apiConfig = getGameApiConfig(gameId)
-
     let result: { found: boolean; username: string; level?: number; server?: string; zoneMatch?: boolean; source?: string }
 
-    if (apiConfig) {
-      try {
-        const apiResult = await verifyViaExternalApi(apiConfig, userId, zoneId)
-        result = { ...apiResult, source: 'api' }
-      } catch (err) {
-        console.warn('External API failed, falling back to mock:', err)
-        result = verifyViaMock(gameId, userId, zoneId)
-      }
-    } else {
+    // Try RapidAPI first, fall back to mock
+    try {
+      const apiResult = await verifyViaRapidAPI(gameId, userId, zoneId)
+      result = { ...apiResult, source: 'api' }
+    } catch (err) {
+      console.warn('RapidAPI failed, falling back to mock:', err)
       result = verifyViaMock(gameId, userId, zoneId)
     }
 
