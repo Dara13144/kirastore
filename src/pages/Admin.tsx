@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Shield, CheckCircle, XCircle, Clock, RefreshCw, LogOut, Package, Settings, Plus, Trash2, Image, Edit3, Save, Upload, Send, Power, PowerOff, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { Shield, CheckCircle, XCircle, Clock, RefreshCw, LogOut, Package, Settings, Plus, Trash2, Image, Edit3, Save, Upload, Send, Power, PowerOff, Eye, EyeOff, Loader2, GamepadIcon, X } from 'lucide-react';
 import { fetchGamesWithPackages, adminApiCall, type Order, type Game, type GamePackage } from '@/lib/store';
 import { getTelegramChatId, setTelegramChatId, sendTelegramNotification } from '@/lib/telegram';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +15,22 @@ const statusConfig = {
 };
 
 type Tab = 'orders' | 'products' | 'settings';
+
+interface NewGameForm {
+  id: string;
+  name: string;
+  publisher: string;
+  region: string;
+  idFields: { key: string; label: string; placeholder: string }[];
+}
+
+const emptyGameForm: NewGameForm = {
+  id: '',
+  name: '',
+  publisher: '',
+  region: '',
+  idFields: [{ key: 'userId', label: 'USER ID', placeholder: '12345678' }],
+};
 
 const Admin = () => {
   const [authed, setAuthed] = useState(false);
@@ -34,6 +50,9 @@ const Admin = () => {
   const pkgImageInputRef = useRef<HTMLInputElement>(null);
   const [uploadTarget, setUploadTarget] = useState<{ gameId: string; field: 'icon' | 'banner' } | null>(null);
   const [pkgUploadTarget, setPkgUploadTarget] = useState<{ gameId: string; pkgId: string } | null>(null);
+  const [showNewGameForm, setShowNewGameForm] = useState(false);
+  const [newGame, setNewGame] = useState<NewGameForm>({ ...emptyGameForm });
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const session = localStorage.getItem('kira_admin_session');
@@ -227,6 +246,55 @@ const Admin = () => {
     setEditingGameId(null);
   };
 
+  const addNewGame = async () => {
+    if (!newGame.id.trim() || !newGame.name.trim() || !newGame.publisher.trim()) return;
+    setSaving(true);
+    try {
+      await adminApiCall('add_game', {
+        id: newGame.id.trim().toLowerCase().replace(/\s+/g, '-'),
+        name: newGame.name.trim(),
+        publisher: newGame.publisher.trim(),
+        region: newGame.region.trim(),
+        id_fields: newGame.idFields.filter(f => f.key.trim()),
+        sort_order: games.length + 1,
+        hot: false,
+        out_of_stock: false,
+      });
+      setNewGame({ ...emptyGameForm });
+      setShowNewGameForm(false);
+      await loadGames();
+    } catch (err) {
+      console.error('Add game failed:', err);
+      alert('បន្ថែមហ្គេមបរាជ័យ! សូមពិនិត្យ ID មិនស្ទួន។');
+    }
+    setSaving(false);
+  };
+
+  const deleteGame = async (gameId: string, gameName: string) => {
+    if (!confirm(`លុបហ្គេម "${gameName}" និងកញ្ចប់ទាំងអស់របស់វា?`)) return;
+    try {
+      await adminApiCall('delete_game', { id: gameId });
+      setGames(prev => prev.filter(g => g.id !== gameId));
+    } catch (err) {
+      console.error('Delete game failed:', err);
+    }
+  };
+
+  const addIdField = () => {
+    setNewGame(prev => ({ ...prev, idFields: [...prev.idFields, { key: '', label: '', placeholder: '' }] }));
+  };
+
+  const updateIdField = (index: number, field: string, value: string) => {
+    setNewGame(prev => ({
+      ...prev,
+      idFields: prev.idFields.map((f, i) => i === index ? { ...f, [field]: value } : f),
+    }));
+  };
+
+  const removeIdField = (index: number) => {
+    setNewGame(prev => ({ ...prev, idFields: prev.idFields.filter((_, i) => i !== index) }));
+  };
+
   // Login screen
   if (!authed) {
     return (
@@ -387,8 +455,90 @@ const Admin = () => {
           <div className="space-y-4 animate-fade-in">
             <div className="flex items-center justify-between">
               <h2 className="font-heading text-lg font-bold text-foreground">គ្រប់គ្រងផលិតផល</h2>
-              {loading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+              <div className="flex items-center gap-2">
+                {loading && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+                <button
+                  onClick={() => setShowNewGameForm(!showNewGameForm)}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${
+                    showNewGameForm ? 'bg-destructive text-destructive-foreground' : 'bg-primary text-primary-foreground hover:bg-primary/90'
+                  }`}
+                >
+                  {showNewGameForm ? <X className="h-3.5 w-3.5" /> : <Plus className="h-3.5 w-3.5" />}
+                  {showNewGameForm ? 'បោះបង់' : 'បន្ថែមហ្គេមថ្មី'}
+                </button>
+              </div>
             </div>
+
+            {/* New Game Form */}
+            {showNewGameForm && (
+              <div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-4 animate-fade-in space-y-3">
+                <h3 className="font-heading text-sm font-bold text-foreground flex items-center gap-2">
+                  <GamepadIcon className="h-4 w-4 text-primary" /> បន្ថែមហ្គេមថ្មី
+                </h3>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="mb-1 block text-[10px] font-bold uppercase text-muted-foreground">Game ID *</label>
+                    <input value={newGame.id} onChange={e => setNewGame(prev => ({ ...prev, id: e.target.value }))}
+                      placeholder="e.g. pubg-kh"
+                      className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-[10px] font-bold uppercase text-muted-foreground">Region (emoji)</label>
+                    <input value={newGame.region} onChange={e => setNewGame(prev => ({ ...prev, region: e.target.value }))}
+                      placeholder="🇰🇭"
+                      className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase text-muted-foreground">ឈ្មោះហ្គេម *</label>
+                  <input value={newGame.name} onChange={e => setNewGame(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="e.g. PUBG MOBILE | KHMER"
+                    className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase text-muted-foreground">អ្នកបោះពុម្ព *</label>
+                  <input value={newGame.publisher} onChange={e => setNewGame(prev => ({ ...prev, publisher: e.target.value }))}
+                    placeholder="e.g. Krafton"
+                    className="w-full rounded-lg border border-input bg-card px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-1 focus:ring-primary" />
+                </div>
+
+                {/* ID Fields Config */}
+                <div>
+                  <label className="mb-1 block text-[10px] font-bold uppercase text-muted-foreground">វាលបញ្ចូល ID អ្នកលេង</label>
+                  <div className="space-y-2">
+                    {newGame.idFields.map((field, idx) => (
+                      <div key={idx} className="flex items-center gap-1.5">
+                        <input value={field.key} onChange={e => updateIdField(idx, 'key', e.target.value)}
+                          placeholder="key" className="w-20 rounded bg-card px-2 py-1 text-xs border border-input focus:outline-none focus:ring-1 focus:ring-primary" />
+                        <input value={field.label} onChange={e => updateIdField(idx, 'label', e.target.value)}
+                          placeholder="Label" className="flex-1 rounded bg-card px-2 py-1 text-xs border border-input focus:outline-none focus:ring-1 focus:ring-primary" />
+                        <input value={field.placeholder} onChange={e => updateIdField(idx, 'placeholder', e.target.value)}
+                          placeholder="Placeholder" className="flex-1 rounded bg-card px-2 py-1 text-xs border border-input focus:outline-none focus:ring-1 focus:ring-primary" />
+                        {newGame.idFields.length > 1 && (
+                          <button onClick={() => removeIdField(idx)} className="text-destructive hover:bg-destructive/10 rounded p-1">
+                            <X className="h-3 w-3" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                    <button onClick={addIdField} className="text-[10px] text-primary hover:underline">+ បន្ថែមវាល</button>
+                  </div>
+                </div>
+
+                <button
+                  onClick={addNewGame}
+                  disabled={saving || !newGame.id.trim() || !newGame.name.trim() || !newGame.publisher.trim()}
+                  className="w-full rounded-xl bg-gradient-green py-2.5 font-heading text-sm font-bold text-primary-foreground shadow-green transition-transform hover:scale-[1.02] disabled:opacity-50 disabled:hover:scale-100 flex items-center justify-center gap-2"
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                  {saving ? 'កំពុងរក្សាទុក...' : 'រក្សាទុកហ្គេមថ្មី'}
+                </button>
+              </div>
+            )}
+
             {games.map((game, gi) => (
               <div key={game.id} className="rounded-2xl border-2 border-border bg-card p-4 animate-fade-in" style={{ animationDelay: `${gi * 80}ms` }}>
                 {/* Game header with image management */}
@@ -448,6 +598,12 @@ const Admin = () => {
                       }`}
                     >
                       🔥 {game.hot ? 'HOT' : 'ធម្មតា'}
+                    </button>
+                    <button
+                      onClick={() => deleteGame(game.id, game.name)}
+                      className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold text-destructive bg-destructive/10 hover:bg-destructive/20 transition-all"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> លុប
                     </button>
                   </div>
                 </div>
