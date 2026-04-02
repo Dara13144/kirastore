@@ -29,7 +29,9 @@ const Admin = () => {
   const [editPublisher, setEditPublisher] = useState('');
   const iconInputRef = useRef<HTMLInputElement>(null);
   const bannerInputRef = useRef<HTMLInputElement>(null);
+  const pkgImageInputRef = useRef<HTMLInputElement>(null);
   const [uploadTarget, setUploadTarget] = useState<{ gameId: string; field: 'icon' | 'banner' } | null>(null);
+  const [pkgUploadTarget, setPkgUploadTarget] = useState<{ gameId: string; pkgId: string } | null>(null);
 
   useEffect(() => {
     const session = localStorage.getItem('kira_admin_session');
