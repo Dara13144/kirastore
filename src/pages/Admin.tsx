@@ -334,7 +334,7 @@ const Admin = () => {
     try { await adminApiCall('reorder_packages', { order }); } catch (e) { console.error('Reorder packages failed:', e); }
   };
 
-
+  const removeIdField = (index: number) => {
     setNewGame(prev => ({ ...prev, idFields: prev.idFields.filter((_, i) => i !== index) }));
   };
 
