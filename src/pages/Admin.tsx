@@ -293,7 +293,48 @@ const Admin = () => {
     }));
   };
 
-  const removeIdField = (index: number) => {
+  // ===== Drag-and-drop for games =====
+  const handleGameDragStart = (idx: number) => setDragGameIdx(idx);
+  const handleGameDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (dragGameIdx === null || dragGameIdx === idx) return;
+    setGames(prev => {
+      const items = [...prev];
+      const [moved] = items.splice(dragGameIdx, 1);
+      items.splice(idx, 0, moved);
+      return items;
+    });
+    setDragGameIdx(idx);
+  };
+  const handleGameDragEnd = async () => {
+    setDragGameIdx(null);
+    const order = games.map((g, i) => ({ id: g.id, sort_order: i }));
+    try { await adminApiCall('reorder_games', { order }); } catch (e) { console.error('Reorder games failed:', e); }
+  };
+
+  // ===== Drag-and-drop for packages =====
+  const handlePkgDragStart = (gameId: string, idx: number) => setDragPkgInfo({ gameId, idx });
+  const handlePkgDragOver = (e: React.DragEvent, gameId: string, idx: number) => {
+    e.preventDefault();
+    if (!dragPkgInfo || dragPkgInfo.gameId !== gameId || dragPkgInfo.idx === idx) return;
+    setGames(prev => prev.map(g => {
+      if (g.id !== gameId) return g;
+      const pkgs = [...g.packages];
+      const [moved] = pkgs.splice(dragPkgInfo.idx, 1);
+      pkgs.splice(idx, 0, moved);
+      return { ...g, packages: pkgs };
+    }));
+    setDragPkgInfo({ gameId, idx });
+  };
+  const handlePkgDragEnd = async (gameId: string) => {
+    setDragPkgInfo(null);
+    const game = games.find(g => g.id === gameId);
+    if (!game) return;
+    const order = game.packages.map((p, i) => ({ id: p.id, sort_order: i }));
+    try { await adminApiCall('reorder_packages', { order }); } catch (e) { console.error('Reorder packages failed:', e); }
+  };
+
+
     setNewGame(prev => ({ ...prev, idFields: prev.idFields.filter((_, i) => i !== index) }));
   };
 
