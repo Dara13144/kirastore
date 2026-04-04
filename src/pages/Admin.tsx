@@ -690,9 +690,19 @@ const Admin = () => {
 
                 {/* Packages */}
                 <div className="space-y-2">
-                  {game.packages.map(pkg => (
-                    <div key={pkg.id} className={`rounded-lg border p-2 transition-all ${pkg.disabled ? 'bg-muted/50 border-border opacity-60' : 'bg-muted border-transparent'}`}>
+                  {game.packages.map((pkg, pi) => (
+                    <div
+                      key={pkg.id}
+                      draggable
+                      onDragStart={e => { e.stopPropagation(); handlePkgDragStart(game.id, pi); }}
+                      onDragOver={e => { e.stopPropagation(); handlePkgDragOver(e, game.id, pi); }}
+                      onDragEnd={e => { e.stopPropagation(); handlePkgDragEnd(game.id); }}
+                      className={`rounded-lg border p-2 transition-all ${pkg.disabled ? 'bg-muted/50 border-border opacity-60' : 'bg-muted border-transparent'} ${dragPkgInfo?.gameId === game.id && dragPkgInfo?.idx === pi ? 'border-primary opacity-50' : ''}`}
+                    >
                       <div className="flex items-center gap-2">
+                        <div className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0">
+                          <GripVertical className="h-4 w-4" />
+                        </div>
                         <div className="relative group shrink-0">
                           {pkg.image ? (
                             <img src={pkg.image} alt="" className="h-9 w-9 rounded-lg object-cover" />
