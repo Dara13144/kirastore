@@ -52,6 +52,30 @@ const TopUp = () => {
     );
   }
 
+  if (game.outOfStock) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="container mx-auto px-4 py-12 text-center animate-fade-in">
+          <div className="mx-auto max-w-sm">
+            <div className="mb-4 flex justify-center">
+              <img src={game.icon} alt={game.name} className="h-20 w-20 rounded-xl object-contain opacity-40 grayscale" />
+            </div>
+            <h2 className="font-heading text-lg font-bold text-foreground mb-2">{game.name}</h2>
+            <div className="rounded-xl bg-destructive/10 border-2 border-destructive/20 p-4">
+              <p className="text-destructive font-bold text-sm">⚠️ អស់ស្តុក</p>
+              <p className="text-muted-foreground text-xs mt-1">ផលិតផលនេះមិនអាចបញ្ជាទិញបានទេនៅពេលនេះ។ សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។</p>
+            </div>
+            <Link to="/" className="mt-4 inline-flex items-center gap-2 text-primary text-sm hover:underline">
+              <ArrowLeft className="h-4 w-4" /> ត្រលប់ទៅទំព័រដើម
+            </Link>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
   const mainFieldKey = game.idFields[0]?.key || 'userId';
   const mainId = playerIds[mainFieldKey]?.trim() || '';
 
