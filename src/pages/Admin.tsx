@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Shield, CheckCircle, XCircle, Clock, RefreshCw, LogOut, Package, Settings, Plus, Trash2, Image, Edit3, Save, Upload, Send, Power, PowerOff, Eye, EyeOff, Loader2, GamepadIcon, X, GripVertical } from 'lucide-react';
+import { Shield, CheckCircle, XCircle, Clock, RefreshCw, LogOut, Package, Settings, Plus, Trash2, Image, Edit3, Save, Upload, Send, Power, PowerOff, Eye, EyeOff, Loader2, GamepadIcon, X, GripVertical, Download, FileUp } from 'lucide-react';
 import { fetchGamesWithPackages, adminApiCall, type Order, type Game, type GamePackage } from '@/lib/store';
 import { getTelegramChatId, setTelegramChatId, sendTelegramNotification } from '@/lib/telegram';
 import { supabase } from '@/integrations/supabase/client';
@@ -55,6 +55,8 @@ const Admin = () => {
   const [saving, setSaving] = useState(false);
   const [dragGameIdx, setDragGameIdx] = useState<number | null>(null);
   const [dragPkgInfo, setDragPkgInfo] = useState<{ gameId: string; idx: number } | null>(null);
+  const csvImportRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     const session = localStorage.getItem('kira_admin_session');
@@ -334,9 +336,85 @@ const Admin = () => {
     try { await adminApiCall('reorder_packages', { order }); } catch (e) { console.error('Reorder packages failed:', e); }
   };
 
+  // ===== CSV Export =====
+  const exportPackagesCSV = (gameId?: string) => {
+    const targetGames = gameId ? games.filter(g => g.id === gameId) : games;
+    const rows = [['id', 'game_id', 'name', 'price', 'category', 'tag', 'sort_order', 'disabled', 'image_url']];
+    targetGames.forEach(g => {
+      g.packages.forEach((p, i) => {
+        rows.push([p.id, g.id, p.name, String(p.price), p.category, p.tag || '', String(i), p.disabled ? 'true' : 'false', p.image || '']);
+      });
+    });
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `packages${gameId ? `-${gameId}` : '-all'}-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // ===== CSV Import =====
+  const handleCSVImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      const text = await file.text();
+      const lines = text.split('\n').filter(l => l.trim());
+      if (lines.length < 2) { alert('CSV ទទេ ឬមិនត្រឹមត្រូវ'); setImporting(false); return; }
+      const headers = parseCSVLine(lines[0]);
+      const packages = lines.slice(1).map(line => {
+        const vals = parseCSVLine(line);
+        const row: Record<string, any> = {};
+        headers.forEach((h, i) => { row[h.trim()] = vals[i]?.trim() || ''; });
+        return {
+          id: row.id || `pkg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          game_id: row.game_id,
+          name: row.name,
+          price: parseFloat(row.price) || 0,
+          category: row.category || 'normal',
+          tag: row.tag || null,
+          sort_order: parseInt(row.sort_order) || 0,
+          disabled: row.disabled === 'true',
+          image_url: row.image_url || null,
+        };
+      }).filter(p => p.game_id && p.name);
+
+      if (packages.length === 0) { alert('មិនមានកញ្ចប់ត្រឹមត្រូវក្នុង CSV'); setImporting(false); return; }
+      
+      await adminApiCall('bulk_import_packages', { packages });
+      alert(`នាំចូលបានជោគជ័យ! ${packages.length} កញ្ចប់`);
+      await loadGames();
+    } catch (err) {
+      console.error('CSV import failed:', err);
+      alert('នាំចូល CSV បរាជ័យ!');
+    }
+    setImporting(false);
+    e.target.value = '';
+  };
+
+  const parseCSVLine = (line: string): string[] => {
+    const result: string[] = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') { current += '"'; i++; }
+        else inQuotes = !inQuotes;
+      } else if (ch === ',' && !inQuotes) { result.push(current); current = ''; }
+      else current += ch;
+    }
+    result.push(current);
+    return result;
+  };
+
   const removeIdField = (index: number) => {
     setNewGame(prev => ({ ...prev, idFields: prev.idFields.filter((_, i) => i !== index) }));
   };
+
 
   // Login screen
   if (!authed) {
@@ -512,6 +590,25 @@ const Admin = () => {
               </div>
             </div>
 
+            {/* CSV Import/Export */}
+            <div className="flex flex-wrap items-center gap-2">
+              <input ref={csvImportRef} type="file" accept=".csv" className="hidden" onChange={handleCSVImport} />
+              <button
+                onClick={() => exportPackagesCSV()}
+                className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" /> នាំចេញ CSV ទាំងអស់
+              </button>
+              <button
+                onClick={() => csvImportRef.current?.click()}
+                disabled={importing}
+                className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors disabled:opacity-50"
+              >
+                {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileUp className="h-3.5 w-3.5" />}
+                {importing ? 'កំពុងនាំចូល...' : 'នាំចូល CSV'}
+              </button>
+            </div>
+
             {/* New Game Form */}
             {showNewGameForm && (
               <div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-4 animate-fade-in space-y-3">
@@ -682,6 +779,9 @@ const Admin = () => {
                   </button>
                   <button onClick={() => toggleAllPackages(game.id, true)} className="flex items-center gap-1 rounded-lg bg-destructive/10 px-2 py-1 text-[10px] font-medium text-destructive hover:bg-destructive/20 transition-colors">
                     <PowerOff className="h-3 w-3" /> បិទទាំងអស់
+                  </button>
+                  <button onClick={() => exportPackagesCSV(game.id)} className="flex items-center gap-1 rounded-lg bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted/80 transition-colors">
+                    <Download className="h-3 w-3" /> CSV
                   </button>
                   <span className="ml-auto text-[10px] text-muted-foreground">
                     {game.packages.filter(p => !p.disabled).length}/{game.packages.length} សកម្ម
