@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { Shield, CheckCircle, XCircle, Clock, RefreshCw, LogOut, Package, Settings, Plus, Trash2, Image, Edit3, Save, Upload, Send, Power, PowerOff, Eye, EyeOff, Loader2, GamepadIcon, X } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { Shield, CheckCircle, XCircle, Clock, RefreshCw, LogOut, Package, Settings, Plus, Trash2, Image, Edit3, Save, Upload, Send, Power, PowerOff, Eye, EyeOff, Loader2, GamepadIcon, X, GripVertical } from 'lucide-react';
 import { fetchGamesWithPackages, adminApiCall, type Order, type Game, type GamePackage } from '@/lib/store';
 import { getTelegramChatId, setTelegramChatId, sendTelegramNotification } from '@/lib/telegram';
 import { supabase } from '@/integrations/supabase/client';
@@ -53,6 +53,8 @@ const Admin = () => {
   const [showNewGameForm, setShowNewGameForm] = useState(false);
   const [newGame, setNewGame] = useState<NewGameForm>({ ...emptyGameForm });
   const [saving, setSaving] = useState(false);
+  const [dragGameIdx, setDragGameIdx] = useState<number | null>(null);
+  const [dragPkgInfo, setDragPkgInfo] = useState<{ gameId: string; idx: number } | null>(null);
 
   useEffect(() => {
     const session = localStorage.getItem('kira_admin_session');
@@ -289,6 +291,47 @@ const Admin = () => {
       ...prev,
       idFields: prev.idFields.map((f, i) => i === index ? { ...f, [field]: value } : f),
     }));
+  };
+
+  // ===== Drag-and-drop for games =====
+  const handleGameDragStart = (idx: number) => setDragGameIdx(idx);
+  const handleGameDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    if (dragGameIdx === null || dragGameIdx === idx) return;
+    setGames(prev => {
+      const items = [...prev];
+      const [moved] = items.splice(dragGameIdx, 1);
+      items.splice(idx, 0, moved);
+      return items;
+    });
+    setDragGameIdx(idx);
+  };
+  const handleGameDragEnd = async () => {
+    setDragGameIdx(null);
+    const order = games.map((g, i) => ({ id: g.id, sort_order: i }));
+    try { await adminApiCall('reorder_games', { order }); } catch (e) { console.error('Reorder games failed:', e); }
+  };
+
+  // ===== Drag-and-drop for packages =====
+  const handlePkgDragStart = (gameId: string, idx: number) => setDragPkgInfo({ gameId, idx });
+  const handlePkgDragOver = (e: React.DragEvent, gameId: string, idx: number) => {
+    e.preventDefault();
+    if (!dragPkgInfo || dragPkgInfo.gameId !== gameId || dragPkgInfo.idx === idx) return;
+    setGames(prev => prev.map(g => {
+      if (g.id !== gameId) return g;
+      const pkgs = [...g.packages];
+      const [moved] = pkgs.splice(dragPkgInfo.idx, 1);
+      pkgs.splice(idx, 0, moved);
+      return { ...g, packages: pkgs };
+    }));
+    setDragPkgInfo({ gameId, idx });
+  };
+  const handlePkgDragEnd = async (gameId: string) => {
+    setDragPkgInfo(null);
+    const game = games.find(g => g.id === gameId);
+    if (!game) return;
+    const order = game.packages.map((p, i) => ({ id: p.id, sort_order: i }));
+    try { await adminApiCall('reorder_packages', { order }); } catch (e) { console.error('Reorder packages failed:', e); }
   };
 
   const removeIdField = (index: number) => {
@@ -540,9 +583,20 @@ const Admin = () => {
             )}
 
             {games.map((game, gi) => (
-              <div key={game.id} className="rounded-2xl border-2 border-border bg-card p-4 animate-fade-in" style={{ animationDelay: `${gi * 80}ms` }}>
+              <div
+                key={game.id}
+                draggable
+                onDragStart={() => handleGameDragStart(gi)}
+                onDragOver={e => handleGameDragOver(e, gi)}
+                onDragEnd={handleGameDragEnd}
+                className={`rounded-2xl border-2 bg-card p-4 animate-fade-in transition-all ${dragGameIdx === gi ? 'border-primary opacity-50' : 'border-border'}`}
+                style={{ animationDelay: `${gi * 80}ms` }}
+              >
                 {/* Game header with image management */}
                 <div className="mb-3 flex items-start gap-3">
+                  <div className="cursor-grab active:cursor-grabbing flex items-center text-muted-foreground hover:text-foreground">
+                    <GripVertical className="h-5 w-5" />
+                  </div>
                   <div className="relative group">
                     <img src={game.icon} alt={game.name} className="h-14 w-14 rounded-xl object-contain" />
                     <button
@@ -636,9 +690,19 @@ const Admin = () => {
 
                 {/* Packages */}
                 <div className="space-y-2">
-                  {game.packages.map(pkg => (
-                    <div key={pkg.id} className={`rounded-lg border p-2 transition-all ${pkg.disabled ? 'bg-muted/50 border-border opacity-60' : 'bg-muted border-transparent'}`}>
+                  {game.packages.map((pkg, pi) => (
+                    <div
+                      key={pkg.id}
+                      draggable
+                      onDragStart={e => { e.stopPropagation(); handlePkgDragStart(game.id, pi); }}
+                      onDragOver={e => { e.stopPropagation(); handlePkgDragOver(e, game.id, pi); }}
+                      onDragEnd={e => { e.stopPropagation(); handlePkgDragEnd(game.id); }}
+                      className={`rounded-lg border p-2 transition-all ${pkg.disabled ? 'bg-muted/50 border-border opacity-60' : 'bg-muted border-transparent'} ${dragPkgInfo?.gameId === game.id && dragPkgInfo?.idx === pi ? 'border-primary opacity-50' : ''}`}
+                    >
                       <div className="flex items-center gap-2">
+                        <div className="cursor-grab active:cursor-grabbing text-muted-foreground hover:text-foreground shrink-0">
+                          <GripVertical className="h-4 w-4" />
+                        </div>
                         <div className="relative group shrink-0">
                           {pkg.image ? (
                             <img src={pkg.image} alt="" className="h-9 w-9 rounded-lg object-cover" />

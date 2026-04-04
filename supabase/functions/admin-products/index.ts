@@ -134,6 +134,28 @@ Deno.serve(async (req) => {
         })
       }
 
+      case 'reorder_games': {
+        const { order } = body // array of { id, sort_order }
+        for (const item of order) {
+          const { error } = await supabase.from('games').update({ sort_order: item.sort_order }).eq('id', item.id)
+          if (error) throw error
+        }
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      case 'reorder_packages': {
+        const { order } = body // array of { id, sort_order }
+        for (const item of order) {
+          const { error } = await supabase.from('game_packages').update({ sort_order: item.sort_order }).eq('id', item.id)
+          if (error) throw error
+        }
+        return new Response(JSON.stringify({ success: true }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
       case 'reset_products': {
         // This is handled by re-running seed - for now just return success
         return new Response(JSON.stringify({ success: true, message: 'Use migration to reset' }), {
