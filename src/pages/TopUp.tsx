@@ -1,14 +1,14 @@
-import { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Search, CheckCircle, Globe, Hash, ChevronRight, Loader2 } from 'lucide-react';
-import { useQuery } from '@tanstack/react-query';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
-import { fetchGameById, addOrder, generateOrderId, type Game, type GamePackage, type CheckResult } from '@/lib/store';
-import { useToast } from '@/hooks/use-toast';
-import { sendTelegramNotification } from '@/lib/telegram';
-import { supabase } from '@/integrations/supabase/client';
-import diamondIcon from '@/assets/diamond-icon.png';
+import { useState } from "react";
+import { useParams, useNavigate, Link } from "react-router-dom";
+import { ArrowLeft, Search, CheckCircle, Globe, Hash, ChevronRight, Loader2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import Navbar from "@/components/Navbar";
+import Footer from "@/components/Footer";
+import { fetchGameById, addOrder, generateOrderId, type Game, type GamePackage, type CheckResult } from "@/lib/store";
+import { useToast } from "@/hooks/use-toast";
+import { sendTelegramNotification } from "@/lib/telegram";
+import { supabase } from "@/integrations/supabase/client";
+import diamondIcon from "@/assets/diamond-icon.png";
 
 const TopUp = () => {
   const { gameId } = useParams<{ gameId: string }>();
@@ -16,7 +16,7 @@ const TopUp = () => {
   const { toast } = useToast();
 
   const { data: game, isLoading: gameLoading } = useQuery({
-    queryKey: ['game', gameId],
+    queryKey: ["game", gameId],
     queryFn: () => fetchGameById(gameId!),
     enabled: !!gameId,
   });
@@ -29,193 +29,153 @@ const TopUp = () => {
   const [selectedPkg, setSelectedPkg] = useState<GamePackage | null>(null);
   const [agreedTerms, setAgreedTerms] = useState(false);
 
-  if (gameLoading) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="container mx-auto px-4 py-12 text-center">
-          <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-        </div>
-      </div>
-    );
-  }
-
-  if (!game) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="container mx-auto px-4 py-12 text-center animate-fade-in">
-          <p className="text-muted-foreground">រកមិនឃើញហ្គេម។</p>
-          <Link to="/" className="mt-4 inline-block text-primary underline">ត្រលប់ទៅទំព័រដើម</Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (game.outOfStock) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="container mx-auto px-4 py-12 text-center animate-fade-in">
-          <div className="mx-auto max-w-sm">
-            <div className="mb-4 flex justify-center">
-              <img src={game.icon} alt={game.name} className="h-20 w-20 rounded-xl object-contain opacity-40 grayscale" />
-            </div>
-            <h2 className="font-heading text-lg font-bold text-foreground mb-2">{game.name}</h2>
-            <div className="rounded-xl bg-destructive/10 border-2 border-destructive/20 p-4">
-              <p className="text-destructive font-bold text-sm">⚠️ អស់ស្តុក</p>
-              <p className="text-muted-foreground text-xs mt-1">ផលិតផលនេះមិនអាចបញ្ជាទិញបានទេនៅពេលនេះ។ សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។</p>
-            </div>
-            <Link to="/" className="mt-4 inline-flex items-center gap-2 text-primary text-sm hover:underline">
-              <ArrowLeft className="h-4 w-4" /> ត្រលប់ទៅទំព័រដើម
-            </Link>
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
-  const mainFieldKey = game.idFields[0]?.key || 'userId';
-  const mainId = playerIds[mainFieldKey]?.trim() || '';
-
+  // --- START CHECK ID LOGIC ---
   const handleCheckAccount = async () => {
+    const mainFieldKey = game?.idFields[0]?.key || "userId";
+    const mainId = playerIds[mainFieldKey]?.trim();
+    const zoneId = playerIds["zoneId"]?.trim();
+
     if (!mainId) {
-      setCheckError('សូមបញ្ចូល ID របស់អ្នកជាមុនសិន។');
+      setCheckError("សូមបញ្ចូល ID របស់អ្នកជាមុនសិន។");
       return;
     }
+
     setCheckLoading(true);
     setCheckError(null);
     setCheckResult(null);
-    setCheckProgress(0);
-
-    const steps = [25, 50, 75];
-    for (const p of steps) {
-      setCheckProgress(p);
-      await new Promise(r => setTimeout(r, 300));
-    }
+    setCheckProgress(20);
 
     try {
-      const zoneId = playerIds['zoneId']?.trim() || undefined;
-      const { data, error } = await supabase.functions.invoke('verify-game-id', {
-        body: { gameId: game.id, userId: mainId, zoneId },
+      // Calling the Master Controller / verify-game-id function
+      const { data, error } = await supabase.functions.invoke("master-controller", {
+        body: {
+          action: "check_id", // Directing to the check_id logic
+          gameId: game?.id,
+          userId: mainId,
+          zoneId: zoneId,
+        },
       });
 
-      setCheckProgress(100);
+      setCheckProgress(70);
 
-      if (error) throw new Error(error.message || 'Verification failed');
+      if (error || !data) throw new Error("Verification failed");
 
-      if (data?.found) {
-        if (data.zoneMatch === false) {
-          setCheckResult(null);
-          setCheckError(`⚠️ Zone ID មិនត្រឹមត្រូវសម្រាប់គណនី "${mainId}". សូមពិនិត្យ Zone ID ម្តងទៀត។`);
-        } else {
-          setCheckResult(data as CheckResult);
-          setCheckError(null);
-        }
+      if (data.found) {
+        setCheckProgress(100);
+        setCheckResult({
+          username: data.username,
+          server: data.region || data.server,
+          level: data.level,
+        });
+        toast({ title: "ស្វែងរកឃើញគណនី!", description: `ឈ្មោះ: ${data.username}`, variant: "default" });
       } else {
-        setCheckResult(null);
         setCheckError(`រកមិនឃើញអ្នកប្រើប្រាស់សម្រាប់ ID "${mainId}".`);
       }
     } catch (err: any) {
-      console.error('Verification error:', err);
-      setCheckResult(null);
-      setCheckError('មានបញ្ហាក្នុងការភ្ជាប់ទៅប្រព័ន្ធផ្ទៀងផ្ទាត់។ សូមព្យាយាមម្តងទៀត។');
+      console.error("Check ID Error:", err);
+      setCheckError("មានបញ្ហាក្នុងការភ្ជាប់ទៅប្រព័ន្ធ។ សូមពិនិត្យ ID ម្តងទៀត។");
+    } finally {
+      setCheckLoading(false);
     }
-    setCheckLoading(false);
   };
+  // --- END CHECK ID LOGIC ---
 
   const handleOrder = async () => {
-    if (!selectedPkg) {
-      toast({ title: 'សូមជ្រើសរើសកញ្ចប់', variant: 'destructive' });
-      return;
-    }
-    if (!mainId) {
-      toast({ title: 'សូមបញ្ចូល ID', variant: 'destructive' });
-      return;
-    }
-    if (!agreedTerms) {
-      toast({ title: 'សូមយល់ព្រមលក្ខខណ្ឌ', variant: 'destructive' });
+    const mainFieldKey = game?.idFields[0]?.key || "userId";
+    const mainId = playerIds[mainFieldKey]?.trim();
+
+    if (!selectedPkg || !mainId || !agreedTerms) {
+      toast({ title: "សូមបំពេញព័ត៌មានឲ្យបានគ្រប់គ្រាន់", variant: "destructive" });
       return;
     }
 
+    const orderId = generateOrderId();
+
     const order = {
-      id: generateOrderId(),
-      gameId: game.id,
-      gameName: game.name,
+      id: orderId,
+      gameId: game!.id,
+      gameName: game!.name,
       playerIds,
-      playerName: checkResult?.username || undefined,
+      playerName: checkResult?.username || "Unknown",
       packageId: selectedPkg.id,
       packageName: selectedPkg.name,
       price: selectedPkg.price,
-      status: 'pending' as const,
+      status: "pending" as const,
       createdAt: new Date().toISOString(),
     };
 
-    await addOrder(order);
+    try {
+      await addOrder(order);
 
-    sendTelegramNotification('new_order', {
-      id: order.id,
-      gameName: order.gameName,
-      packageName: order.packageName,
-      price: order.price,
-      playerName: order.playerName,
-      playerIds: order.playerIds,
-    });
+      // Notify Admin
+      sendTelegramNotification("new_order", {
+        id: order.id,
+        gameName: order.gameName,
+        packageName: order.packageName,
+        price: order.price,
+        playerName: order.playerName,
+        playerIds: order.playerIds,
+      });
 
-    navigate(`/payment/${order.id}`);
+      navigate(`/payment/${order.id}`);
+    } catch (error) {
+      toast({ title: "មានបញ្ហា", description: "មិនអាចបង្កើតការបញ្ជាទិញបានទេ", variant: "destructive" });
+    }
   };
 
-  const bestSellers = game.packages.filter(p => p.category === 'best-seller' && !p.disabled);
-  const normals = game.packages.filter(p => p.category === 'normal' && !p.disabled);
+  // Content Filtering
+  if (gameLoading)
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Loader2 className="animate-spin" />
+      </div>
+    );
+  if (!game) return <div className="p-10 text-center">Game Not Found</div>;
+
+  const bestSellers = game.packages.filter((p) => p.category === "best-seller" && !p.disabled);
+  const normals = game.packages.filter((p) => p.category === "normal" && !p.disabled);
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="container mx-auto px-4 pt-4 animate-fade-in">
-        <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors">
-          <ArrowLeft className="h-4 w-4" /> ត្រលប់ទៅទំព័រដើម
+      {/* Banner & Header */}
+      <div className="container mx-auto px-4 pt-4">
+        <Link to="/" className="inline-flex items-center gap-1 text-sm text-muted-foreground mb-4">
+          <ArrowLeft className="h-4 w-4" /> ត្រលប់ក្រោយ
         </Link>
-      </div>
+        <img src={game.banner} alt="" className="w-full rounded-2xl object-cover h-48 md:h-64 shadow-lg" />
 
-      <div className="container mx-auto px-4 pt-3 animate-scale-in">
-        <img src={game.banner} alt={game.name} className="w-full rounded-2xl object-cover shadow-green" width={1024} height={512} />
-      </div>
-
-      <div className="container mx-auto px-4 pt-4 animate-slide-up" style={{ animationDelay: '100ms' }}>
-        <div className="flex items-center gap-4 rounded-2xl bg-card p-4 shadow-sm">
-          <img src={game.icon} alt="" className="h-16 w-16 rounded-xl animate-float" width={64} height={64} />
+        <div className="mt-4 flex items-center gap-4 bg-card p-4 rounded-2xl border border-border">
+          <img src={game.icon} className="h-16 w-16 rounded-xl" />
           <div>
-            <h2 className="font-heading text-base font-bold text-primary">{game.name}</h2>
+            <h2 className="text-xl font-bold">{game.name}</h2>
             <p className="text-xs text-muted-foreground">{game.publisher}</p>
-            <p className="flex items-center gap-1 text-xs font-medium text-success">
-              <CheckCircle className="h-3 w-3" /> ដឹកជញ្ជូនភ្លាមៗ
-            </p>
           </div>
         </div>
       </div>
 
-      {/* Step 1: Enter Account Info */}
-      <div className="container mx-auto px-4 pt-4 animate-slide-up" style={{ animationDelay: '200ms' }}>
-        <div className="rounded-2xl bg-gradient-green p-4">
-          <div className="mb-4 flex items-center gap-3">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-foreground font-heading text-sm font-bold text-primary">1</span>
-            <h3 className="font-heading text-base font-bold text-primary-foreground">បញ្ចូលព័ត៌មានគណនី</h3>
+      {/* 1. Account Info Section */}
+      <div className="container mx-auto px-4 mt-6">
+        <div className="bg-gradient-to-br from-green-600 to-green-800 p-6 rounded-2xl shadow-xl text-white">
+          <div className="flex items-center gap-3 mb-6">
+            <span className="bg-white text-green-700 h-8 w-8 flex items-center justify-center rounded-full font-bold">
+              1
+            </span>
+            <h3 className="text-lg font-bold">បញ្ចូលព័ត៌មានគណនី</h3>
           </div>
 
-          <div className="space-y-3">
-            {game.idFields.map(field => (
+          <div className="space-y-4">
+            {game.idFields.map((field) => (
               <div key={field.key}>
-                <label className="mb-1 block text-xs font-bold uppercase text-primary-foreground/80">{field.label}</label>
-                <div className="flex items-center gap-2 rounded-xl bg-primary-foreground/90 px-3 py-3 transition-all focus-within:ring-2 focus-within:ring-primary-foreground/50">
-                  {field.key === 'userId' || field.key === 'playerId' ? <Hash className="h-4 w-4 text-muted-foreground" /> : <Globe className="h-4 w-4 text-muted-foreground" />}
+                <label className="text-xs font-semibold mb-1 block opacity-80 uppercase">{field.label}</label>
+                <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-xl px-4 py-3 flex items-center gap-2">
+                  <Hash className="h-4 w-4 opacity-60" />
                   <input
                     type="text"
                     placeholder={field.placeholder}
-                    value={playerIds[field.key] || ''}
-                    onChange={e => setPlayerIds(prev => ({ ...prev, [field.key]: e.target.value }))}
-                    className="w-full bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                    className="bg-transparent border-none outline-none w-full text-white placeholder:text-white/40"
+                    onChange={(e) => setPlayerIds((prev) => ({ ...prev, [field.key]: e.target.value }))}
                   />
                 </div>
               </div>
@@ -225,205 +185,85 @@ const TopUp = () => {
           <button
             onClick={handleCheckAccount}
             disabled={checkLoading}
-            className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border-2 border-primary-foreground/30 bg-primary-foreground/10 py-3 text-sm font-medium text-primary-foreground transition-all hover:bg-primary-foreground/20 hover:scale-[1.02] active:scale-[0.98]"
+            className="w-full mt-4 bg-white/20 hover:bg-white/30 py-3 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"
           >
-            {checkLoading ? (
-              <><Loader2 className="h-4 w-4 animate-spin" /> កំពុងពិនិត្យប្រព័ន្ធ...</>
-            ) : (
-              <><Search className="h-4 w-4" /> ពិនិត្យគណនី (System Check)</>
-            )}
+            {checkLoading ? <Loader2 className="animate-spin" /> : <Search className="h-4 w-4" />}
+            ពិនិត្យគណនី
           </button>
 
-          {checkLoading && (
-            <div className="mt-3 animate-fade-in">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs text-primary-foreground/70">កំពុងស្កេនប្រព័ន្ធ...</span>
-                <span className="text-xs font-bold text-primary-foreground">{checkProgress}%</span>
-              </div>
-              <div className="h-2 w-full overflow-hidden rounded-full bg-primary-foreground/20">
-                <div className="h-full bg-primary-foreground transition-all duration-300 ease-out" style={{ width: `${checkProgress}%` }} />
-              </div>
-            </div>
-          )}
-
           {checkResult && (
-            <div className="mt-3 rounded-xl bg-primary-foreground/90 p-4 animate-scale-in space-y-2">
-              <p className="text-sm text-success font-bold flex items-center gap-1">
-                <CheckCircle className="h-4 w-4" /> ផ្ទៀងផ្ទាត់ជោគជ័យ
+            <div className="mt-4 bg-white text-black p-4 rounded-xl animate-in fade-in zoom-in duration-300">
+              <p className="text-green-600 font-bold flex items-center gap-2 mb-2">
+                <CheckCircle className="h-4 w-4" /> គណនីត្រឹមត្រូវ
               </p>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-lg bg-background/50 p-2">
-                  <span className="text-muted-foreground">ឈ្មោះអ្នកប្រើ</span>
-                  <p className="font-bold text-foreground">{checkResult.username}</p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div className="bg-gray-100 p-2 rounded">
+                  <span className="text-gray-500 text-[10px]">Nickname</span>
+                  <p className="font-bold">{checkResult.username}</p>
                 </div>
                 {checkResult.server && (
-                  <div className="rounded-lg bg-background/50 p-2">
-                    <span className="text-muted-foreground">Server</span>
-                    <p className="font-bold text-foreground">{checkResult.server}</p>
+                  <div className="bg-gray-100 p-2 rounded">
+                    <span className="text-gray-500 text-[10px]">Server/Region</span>
+                    <p className="font-bold">{checkResult.server}</p>
                   </div>
                 )}
-                {checkResult.level && (
-                  <div className="rounded-lg bg-background/50 p-2">
-                    <span className="text-muted-foreground">Level</span>
-                    <p className="font-bold text-foreground">Lv. {checkResult.level}</p>
-                  </div>
-                )}
-                <div className="rounded-lg bg-background/50 p-2">
-                  <span className="text-muted-foreground">Zone</span>
-                  <p className="font-bold text-success">✓ ត្រឹមត្រូវ</p>
+              </div>
+            </div>
+          )}
+
+          {checkError && <p className="mt-3 text-red-300 text-sm font-medium">❌ {checkError}</p>}
+        </div>
+      </div>
+
+      {/* 2. Package Selection */}
+      <div className="container mx-auto px-4 mt-6">
+        <div className="bg-card border border-border p-6 rounded-2xl shadow-sm">
+          <div className="flex items-center gap-3 mb-6">
+            <span className="bg-primary text-white h-8 w-8 flex items-center justify-center rounded-full font-bold">
+              2
+            </span>
+            <h3 className="text-lg font-bold">ជ្រើសរើសកញ្ចប់</h3>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {game.packages.map((pkg) => (
+              <button
+                key={pkg.id}
+                onClick={() => setSelectedPkg(pkg)}
+                className={`p-4 rounded-xl border-2 text-left transition-all ${
+                  selectedPkg?.id === pkg.id ? "border-primary bg-primary/5 ring-2 ring-primary/20" : "border-border"
+                }`}
+              >
+                <div className="flex flex-col gap-1">
+                  <span className="font-bold text-sm">{pkg.name}</span>
+                  <span className="text-primary font-heading text-lg">${pkg.price.toFixed(2)}</span>
                 </div>
-              </div>
-            </div>
-          )}
-          {checkError && (
-            <div className="mt-3 rounded-xl bg-accent/10 p-3 animate-shake">
-              <p className="text-sm text-accent font-medium">❌ {checkError}</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Step 2: Select Package */}
-      <div className="container mx-auto px-4 pt-4 animate-slide-up" style={{ animationDelay: '300ms' }}>
-        <div className="rounded-2xl bg-gradient-green p-4">
-          <div className="mb-4 flex items-center gap-3">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-foreground font-heading text-sm font-bold text-primary">2</span>
-            <h3 className="font-heading text-base font-bold text-primary-foreground">ជ្រើសរើសកញ្ចប់</h3>
-          </div>
-
-          {bestSellers.length > 0 && (
-            <>
-              <p className="mb-3 font-heading text-sm font-bold text-accent">🏆 កញ្ចប់លក់ដាច់ជាងគេ</p>
-              <div className="mb-4 grid grid-cols-2 gap-2">
-                {bestSellers.map((pkg, i) => (
-                  <button
-                    key={pkg.id}
-                    onClick={() => setSelectedPkg(pkg)}
-                    className={`relative rounded-xl border-2 p-3 text-left transition-all hover:scale-[1.03] active:scale-[0.97] ${
-                      selectedPkg?.id === pkg.id
-                        ? 'border-primary bg-primary/5 shadow-green'
-                        : 'border-border bg-card hover:border-primary/50'
-                    }`}
-                    style={{ animationDelay: `${i * 50}ms` }}
-                  >
-                    {pkg.tag && (
-                      <span className="absolute -right-1 -top-2 rounded bg-accent px-1.5 py-0.5 text-[9px] font-bold text-accent-foreground">
-                        {pkg.tag}
-                      </span>
-                    )}
-                    <div className="flex items-center gap-2">
-                      {pkg.image ? (
-                        <img src={pkg.image} alt="" className="h-8 w-8 rounded-lg object-cover shrink-0" loading="lazy" />
-                      ) : (
-                        <img src={diamondIcon} alt="" className="h-8 w-8 shrink-0 animate-float" loading="lazy" />
-                      )}
-                      <div>
-                        <p className="text-sm font-bold text-foreground">{pkg.name}</p>
-                        <p className="text-sm font-bold text-primary">$ {pkg.price.toFixed(2)}</p>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-
-          {normals.length > 0 && (
-            <>
-              <p className="mb-3 font-heading text-sm font-bold text-primary-foreground">💎 កញ្ចប់ធម្មតា</p>
-              <div className="grid grid-cols-2 gap-2">
-                {normals.map((pkg, i) => (
-                  <button
-                    key={pkg.id}
-                    onClick={() => setSelectedPkg(pkg)}
-                    className={`relative flex items-center justify-between rounded-xl border-2 p-3 text-left transition-all hover:scale-[1.03] active:scale-[0.97] ${
-                      selectedPkg?.id === pkg.id
-                        ? 'border-primary bg-primary/5 shadow-green'
-                        : 'border-border bg-card hover:border-primary/50'
-                    }`}
-                    style={{ animationDelay: `${i * 50}ms` }}
-                  >
-                    {pkg.tag && (
-                      <span className="absolute -right-1 -top-2 rounded bg-accent px-1.5 py-0.5 text-[9px] font-bold text-accent-foreground">
-                        {pkg.tag}
-                      </span>
-                    )}
-                    <div>
-                      <p className="text-sm font-bold text-foreground">{pkg.name}</p>
-                      <p className="text-sm font-bold text-primary">$ {pkg.price.toFixed(2)}</p>
-                    </div>
-                    {pkg.image ? (
-                      <img src={pkg.image} alt="" className="h-10 w-10 rounded-lg object-cover" loading="lazy" />
-                    ) : (
-                      <img src={diamondIcon} alt="" className="h-10 w-10 animate-float" loading="lazy" />
-                    )}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Step 3: Payment Method */}
-      <div className="container mx-auto px-4 pt-4 animate-slide-up" style={{ animationDelay: '400ms' }}>
-        <div className="rounded-2xl bg-gradient-green p-4">
-          <div className="mb-4 flex items-center gap-3">
-            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-primary-foreground font-heading text-sm font-bold text-primary">3</span>
-            <h3 className="font-heading text-base font-bold text-primary-foreground">វិធីបង់ប្រាក់</h3>
-          </div>
-          <div className="flex items-center justify-between rounded-xl border-2 border-primary bg-card p-4 transition-all hover:shadow-green">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 flex-col items-center justify-center rounded-lg bg-accent">
-                <span className="text-[8px] font-bold text-accent-foreground">ABA</span>
-                <span className="text-[6px] font-bold text-accent-foreground">KHQR</span>
-              </div>
-              <span className="font-heading text-sm font-bold text-foreground">KHQR / ABA Pay</span>
-            </div>
-            <CheckCircle className="h-5 w-5 text-primary" />
+              </button>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Terms */}
-      <div className="container mx-auto px-4 pt-4 animate-slide-up" style={{ animationDelay: '500ms' }}>
-        <div className="rounded-2xl bg-gradient-green p-4">
-          <label className="flex cursor-pointer items-start gap-3">
+      {/* Checkout Footer */}
+      <div className="sticky bottom-0 bg-background/80 backdrop-blur-md border-t border-border p-4 mt-10">
+        <div className="container mx-auto">
+          <div className="flex items-center gap-3 mb-4">
             <input
               type="checkbox"
               checked={agreedTerms}
-              onChange={e => setAgreedTerms(e.target.checked)}
-              className="mt-1 h-5 w-5 rounded border-primary-foreground/30 accent-primary"
+              onChange={(e) => setAgreedTerms(e.target.checked)}
+              className="h-5 w-5 accent-primary"
             />
-            <span className="text-sm text-primary-foreground">
-              ខ្ញុំបានអាន និងយល់ព្រមតាម <span className="font-bold italic text-accent-foreground underline">លក្ខខណ្ឌ​ និង​គោលនយោបាយ</span> នៃការទិញ។
-            </span>
-          </label>
-        </div>
-      </div>
-
-      {/* Total & Order */}
-      <div className="container mx-auto px-4 py-4 animate-slide-up" style={{ animationDelay: '600ms' }}>
-        {selectedPkg && (
-          <div className="mb-4 rounded-2xl bg-card p-4 shadow-sm animate-scale-in">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">កញ្ចប់:</span>
-              <span className="font-bold text-foreground">{selectedPkg.name}</span>
-            </div>
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">តម្លៃ:</span>
-              <span className="font-heading text-lg font-bold text-primary">$ {selectedPkg.price.toFixed(2)}</span>
-            </div>
+            <span className="text-xs text-muted-foreground">ខ្ញុំបានពិនិត្យ ID ត្រឹមត្រូវ និងយល់ព្រមតាមលក្ខខណ្ឌ</span>
           </div>
-        )}
-        <button
-          onClick={handleOrder}
-          disabled={!selectedPkg || !mainId || !agreedTerms}
-          className="w-full rounded-xl bg-gradient-green py-4 font-heading text-sm font-bold text-primary-foreground shadow-green transition-all hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:hover:scale-100"
-        >
-          <ChevronRight className="mr-1 inline h-4 w-4" />
-          បញ្ជាទិញឥឡូវនេះ
-        </button>
+          <button
+            onClick={handleOrder}
+            disabled={!selectedPkg || !agreedTerms}
+            className="w-full bg-green-600 hover:bg-green-700 text-white py-4 rounded-xl font-bold flex items-center justify-center gap-2 disabled:opacity-50 transition-all shadow-lg"
+          >
+            បញ្ជាទិញឥឡូវនេះ <ChevronRight />
+          </button>
+        </div>
       </div>
 
       <Footer />

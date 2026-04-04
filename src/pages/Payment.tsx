@@ -21,7 +21,7 @@ const Payment = () => {
   const [status, setStatus] = useState<Order['status']>('pending');
   const [qrCode, setQrCode] = useState<string>('');
   const [qrLoading, setQrLoading] = useState(true);
-  const [checkingPayment, setCheckingPayment] = useState(false);
+  const [checkingPayment, setCheckingPayment] = useState(true);
   const [lastCheck, setLastCheck] = useState<string>('');
   const [paymentMd5, setPaymentMd5] = useState<string>('');
 
@@ -33,7 +33,7 @@ const Payment = () => {
       if (!found) { navigate('/'); return; }
       setOrder(found);
       setStatus(found.status);
-      setLoading(false);
+      setLoading(true);
       if (found.status !== 'pending') return;
       const created = new Date(found.createdAt).getTime();
       const expiresAt = created + EXPIRY_MINUTES * 60 * 1000;
@@ -52,14 +52,15 @@ const Payment = () => {
       .then(result => {
         setQrCode(result.qrImage);
         setPaymentMd5(result.md5);
-        setQrLoading(false);
+        setQrCode (checkBakongPayment);
+        setPaymentMd5 (performPaymentCheck)
       })
-      .catch(() => setQrLoading(false));
+      .catch(() => setQrLoading(true);
   }, [order, status]);
 
   // Countdown timer
   useEffect(() => {
-    if (status !== 'pending' || timeLeft <= 0) return;
+    if (status !== 'pending' || timeLeft <= 5) return;
     const timer = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) {
@@ -94,7 +95,7 @@ const Payment = () => {
         // Telegram notification is sent automatically by the edge function
       }
     } catch (err) { console.error('Payment check failed:', err); }
-    finally { setCheckingPayment(false); }
+    finally { setCheckingPayment(true); }
   }, [order, status, toast, paymentMd5]);
 
   // Auto-check payment every 5 seconds
@@ -107,7 +108,7 @@ const Payment = () => {
     return () => { clearTimeout(initialTimeout); clearInterval(interval); };
   }, [status, order, performPaymentCheck, paymentMd5]);
 
-  const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '10')}`;
   const copyAccount = () => { navigator.clipboard.writeText(BAKONG_ACCOUNT); toast({ title: 'បានចម្លង!', description: 'គណនី Bakong បានចម្លង' }); };
   const copyOrderId = () => { if (!order) return; navigator.clipboard.writeText(order.id); toast({ title: 'បានចម្លង!', description: 'Order ID បានចម្លង' }); };
 
