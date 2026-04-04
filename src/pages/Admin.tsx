@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Shield, CheckCircle, XCircle, Clock, RefreshCw, LogOut, Package, Settings, Plus, Trash2, Image, Edit3, Save, Upload, Send, Power, PowerOff, Eye, EyeOff, Loader2, GamepadIcon, X, GripVertical } from 'lucide-react';
+import { Shield, CheckCircle, XCircle, Clock, RefreshCw, LogOut, Package, Settings, Plus, Trash2, Image, Edit3, Save, Upload, Send, Power, PowerOff, Eye, EyeOff, Loader2, GamepadIcon, X, GripVertical, Download, FileUp } from 'lucide-react';
 import { fetchGamesWithPackages, adminApiCall, type Order, type Game, type GamePackage } from '@/lib/store';
 import { getTelegramChatId, setTelegramChatId, sendTelegramNotification } from '@/lib/telegram';
 import { supabase } from '@/integrations/supabase/client';
