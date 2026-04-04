@@ -583,7 +583,15 @@ const Admin = () => {
             )}
 
             {games.map((game, gi) => (
-              <div key={game.id} className="rounded-2xl border-2 border-border bg-card p-4 animate-fade-in" style={{ animationDelay: `${gi * 80}ms` }}>
+              <div
+                key={game.id}
+                draggable
+                onDragStart={() => handleGameDragStart(gi)}
+                onDragOver={e => handleGameDragOver(e, gi)}
+                onDragEnd={handleGameDragEnd}
+                className={`rounded-2xl border-2 bg-card p-4 animate-fade-in transition-all ${dragGameIdx === gi ? 'border-primary opacity-50' : 'border-border'}`}
+                style={{ animationDelay: `${gi * 80}ms` }}
+              >
                 {/* Game header with image management */}
                 <div className="mb-3 flex items-start gap-3">
                   <div className="relative group">
