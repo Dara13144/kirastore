@@ -590,6 +590,25 @@ const Admin = () => {
               </div>
             </div>
 
+            {/* CSV Import/Export */}
+            <div className="flex flex-wrap items-center gap-2">
+              <input ref={csvImportRef} type="file" accept=".csv" className="hidden" onChange={handleCSVImport} />
+              <button
+                onClick={() => exportPackagesCSV()}
+                className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors"
+              >
+                <Download className="h-3.5 w-3.5" /> នាំចេញ CSV ទាំងអស់
+              </button>
+              <button
+                onClick={() => csvImportRef.current?.click()}
+                disabled={importing}
+                className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1.5 text-xs font-medium text-foreground hover:bg-muted/80 transition-colors disabled:opacity-50"
+              >
+                {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <FileUp className="h-3.5 w-3.5" />}
+                {importing ? 'កំពុងនាំចូល...' : 'នាំចូល CSV'}
+              </button>
+            </div>
+
             {/* New Game Form */}
             {showNewGameForm && (
               <div className="rounded-2xl border-2 border-primary/30 bg-primary/5 p-4 animate-fade-in space-y-3">
