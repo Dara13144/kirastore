@@ -93,7 +93,32 @@ Deno.serve(async (req) => {
         })
       }
 
-      // ===== ADD NEW GAME =====
+      case 'bulk_import_packages': {
+        const { packages } = body // array of { id, game_id, name, price, category, tag, sort_order, disabled }
+        // Upsert: delete existing then insert
+        const gameIds = [...new Set(packages.map((p: any) => p.game_id))]
+        for (const gid of gameIds) {
+          await supabase.from('game_packages').delete().eq('game_id', gid)
+        }
+        const { error } = await supabase.from('game_packages').insert(packages)
+        if (error) throw error
+        return new Response(JSON.stringify({ success: true, count: packages.length }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+      case 'export_packages': {
+        const { game_id } = body
+        let query = supabase.from('game_packages').select('*').order('sort_order')
+        if (game_id) query = query.eq('game_id', game_id)
+        const { data, error } = await query
+        if (error) throw error
+        return new Response(JSON.stringify(data), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+
+
       case 'add_game': {
         const { action: _a, ...gameData } = body
         const { error } = await supabase.from('games').insert(gameData)
