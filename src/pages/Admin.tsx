@@ -780,6 +780,9 @@ const Admin = () => {
                   <button onClick={() => toggleAllPackages(game.id, true)} className="flex items-center gap-1 rounded-lg bg-destructive/10 px-2 py-1 text-[10px] font-medium text-destructive hover:bg-destructive/20 transition-colors">
                     <PowerOff className="h-3 w-3" /> បិទទាំងអស់
                   </button>
+                  <button onClick={() => exportPackagesCSV(game.id)} className="flex items-center gap-1 rounded-lg bg-muted px-2 py-1 text-[10px] font-medium text-muted-foreground hover:bg-muted/80 transition-colors">
+                    <Download className="h-3 w-3" /> CSV
+                  </button>
                   <span className="ml-auto text-[10px] text-muted-foreground">
                     {game.packages.filter(p => !p.disabled).length}/{game.packages.length} សកម្ម
                   </span>
