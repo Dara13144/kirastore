@@ -55,6 +55,8 @@ const Admin = () => {
   const [saving, setSaving] = useState(false);
   const [dragGameIdx, setDragGameIdx] = useState<number | null>(null);
   const [dragPkgInfo, setDragPkgInfo] = useState<{ gameId: string; idx: number } | null>(null);
+  const csvImportRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     const session = localStorage.getItem('kira_admin_session');
