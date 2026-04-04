@@ -53,6 +53,8 @@ const Admin = () => {
   const [showNewGameForm, setShowNewGameForm] = useState(false);
   const [newGame, setNewGame] = useState<NewGameForm>({ ...emptyGameForm });
   const [saving, setSaving] = useState(false);
+  const [dragGameIdx, setDragGameIdx] = useState<number | null>(null);
+  const [dragPkgInfo, setDragPkgInfo] = useState<{ gameId: string; idx: number } | null>(null);
 
   useEffect(() => {
     const session = localStorage.getItem('kira_admin_session');
