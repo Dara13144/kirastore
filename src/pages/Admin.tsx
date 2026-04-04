@@ -594,6 +594,9 @@ const Admin = () => {
               >
                 {/* Game header with image management */}
                 <div className="mb-3 flex items-start gap-3">
+                  <div className="cursor-grab active:cursor-grabbing flex items-center text-muted-foreground hover:text-foreground">
+                    <GripVertical className="h-5 w-5" />
+                  </div>
                   <div className="relative group">
                     <img src={game.icon} alt={game.name} className="h-14 w-14 rounded-xl object-contain" />
                     <button
