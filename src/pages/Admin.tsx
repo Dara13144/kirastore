@@ -57,6 +57,8 @@ const Admin = () => {
   const [dragPkgInfo, setDragPkgInfo] = useState<{ gameId: string; idx: number } | null>(null);
   const csvImportRef = useRef<HTMLInputElement>(null);
   const [importing, setImporting] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string; icon?: string; publisher: string; packageCount: number } | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const session = localStorage.getItem('kira_admin_session');
@@ -274,14 +276,27 @@ const Admin = () => {
     setSaving(false);
   };
 
-  const deleteGame = async (gameId: string, gameName: string) => {
-    if (!confirm(`លុបហ្គេម "${gameName}" និងកញ្ចប់ទាំងអស់របស់វា?`)) return;
+  const showDeleteConfirm = (game: Game) => {
+    setDeleteConfirm({
+      id: game.id,
+      name: game.name,
+      icon: game.icon,
+      publisher: game.publisher,
+      packageCount: game.packages.length,
+    });
+  };
+
+  const confirmDeleteGame = async () => {
+    if (!deleteConfirm) return;
+    setDeleting(true);
     try {
-      await adminApiCall('delete_game', { id: gameId });
-      setGames(prev => prev.filter(g => g.id !== gameId));
+      await adminApiCall('delete_game', { id: deleteConfirm.id });
+      setGames(prev => prev.filter(g => g.id !== deleteConfirm.id));
     } catch (err) {
       console.error('Delete game failed:', err);
     }
+    setDeleting(false);
+    setDeleteConfirm(null);
   };
 
   const addIdField = () => {
