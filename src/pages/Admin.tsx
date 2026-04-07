@@ -766,7 +766,7 @@ const Admin = () => {
                       🔥 {game.hot ? 'HOT' : 'ធម្មតា'}
                     </button>
                     <button
-                      onClick={() => deleteGame(game.id, game.name)}
+                      onClick={() => showDeleteConfirm(game)}
                       className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold text-destructive bg-destructive/10 hover:bg-destructive/20 transition-all"
                     >
                       <Trash2 className="h-3.5 w-3.5" /> លុប
@@ -919,6 +919,47 @@ const Admin = () => {
           </div>
         )}
       </div>
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in-0">
+          <div className="w-full max-w-sm mx-4 rounded-2xl bg-card border border-border p-6 shadow-xl animate-in zoom-in-95">
+            <div className="flex flex-col items-center text-center">
+              {deleteConfirm.icon ? (
+                <img src={deleteConfirm.icon} alt={deleteConfirm.name} className="h-16 w-16 rounded-xl object-cover mb-3" />
+              ) : (
+                <div className="h-16 w-16 rounded-xl bg-destructive/10 flex items-center justify-center mb-3">
+                  <Trash2 className="h-8 w-8 text-destructive" />
+                </div>
+              )}
+              <h3 className="text-lg font-bold text-foreground mb-1">លុបហ្គេម?</h3>
+              <p className="text-sm text-muted-foreground mb-1">
+                <span className="font-semibold text-foreground">{deleteConfirm.name}</span>
+              </p>
+              <p className="text-xs text-muted-foreground mb-1">អ្នកផលិត: {deleteConfirm.publisher}</p>
+              <p className="text-xs text-destructive font-semibold mb-4">
+                ⚠️ កញ្ចប់ {deleteConfirm.packageCount} នឹងត្រូវលុបផងដែរ
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                disabled={deleting}
+                className="flex-1 rounded-xl px-4 py-2.5 text-sm font-bold bg-muted text-foreground hover:bg-muted/80 transition-all"
+              >
+                បោះបង់
+              </button>
+              <button
+                onClick={confirmDeleteGame}
+                disabled={deleting}
+                className="flex-1 rounded-xl px-4 py-2.5 text-sm font-bold bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-all flex items-center justify-center gap-2"
+              >
+                {deleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                {deleting ? 'កំពុងលុប...' : 'លុប'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
