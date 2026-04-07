@@ -55,7 +55,7 @@ const Payment = () => {
         setQrCode (checkBakongPayment);
         setPaymentMd5 (performPaymentCheck)
       })
-      .catch(() => setQrLoading(true);
+      .catch(() => setQrLoading(true));
   }, [order, status]);
 
   // Countdown timer
