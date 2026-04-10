@@ -63,6 +63,7 @@ const TopUp = () => {
       if (data.found) {
         setCheckProgress(100);
         setCheckResult({
+          found: true,
           username: data.username,
           server: data.region || data.server,
           level: data.level,
