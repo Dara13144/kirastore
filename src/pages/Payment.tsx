@@ -52,10 +52,12 @@ const Payment = () => {
       .then(result => {
         setQrCode(result.qrImage);
         setPaymentMd5(result.md5);
-        setQrCode (checkBakongPayment);
-        setPaymentMd5 (performPaymentCheck)
+        setQrLoading(false);
       })
-      .catch(() => setQrLoading(true));
+      .catch((err) => {
+        console.error('QR generation failed:', err);
+        setQrLoading(false);
+      });
   }, [order, status]);
 
   // Countdown timer
