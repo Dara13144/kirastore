@@ -209,7 +209,7 @@ export async function searchOrders(query: string): Promise<Order[]> {
 }
 
 export async function updateOrderStatus(orderId: string, status: Order['status'], txHash?: string): Promise<void> {
-  const updates: Record<string, unknown> = { status };
+  const updates: { status: string; transaction_hash?: string } = { status };
   if (txHash) updates.transaction_hash = txHash;
   
   const { error } = await supabase
