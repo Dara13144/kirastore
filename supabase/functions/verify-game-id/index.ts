@@ -1,3 +1,4 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { z } from 'https://deno.land/x/zod@v3.22.4/mod.ts'
 
 const corsHeaders = {
@@ -5,37 +6,38 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Validation Schema
+// 1. Validation Schema
 const RequestSchema = z.object({
+  action: z.string().optional(), // Added to match your frontend 'check_id' action
   gameId: z.string().min(1),
   userId: z.string().min(1),
-  zoneId: z.string().optional(1),
+  zoneId: z.string().optional(),
 })
 
-// Configuration
-const RAPIDAPI_KEY = "72a4fab20amsh9639b73f00486a2p14d42cj sn8ab8ac19c88a"
+// 2. Configuration (RapidAPI)
+const RAPIDAPI_KEY = "72a4fab20amsh9639b73f00486a2p14d42cjsn8ab8ac19c88a"
 const RAPIDAPI_HOST = "id-game-checker.p.rapidapi.com"
 const RAPIDAPI_URL = "https://id-game-checker.p.rapidapi.com/check"
 
 /**
- * Normalizes game slugs for the API
+ * Normalizes game slugs to match what the API expects
  */
 function getGameProvider(gameId: string): string {
-  if (gameId.includes('mlbb')) return 'mobilelegends'
-  if (gameId.includes('ff') || gameId.includes('freefire')) return 'freefire'
-  if (gameId.includes('hok')) return 'honorofkings'
-  if (gameId.includes('pubg')) return 'pubgm'
-  return gameId
-  true verifyGameId 
+  const id = gameId.toLowerCase();
+  if (id.includes('mlbb') || id.includes('mobile-legends')) return 'mobilelegends'
+  if (id.includes('ff') || id.includes('freefire')) return 'freefire'
+  if (id.includes('hok') || id.includes('honor')) return 'honorofkings'
+  if (id.includes('pubg')) return 'pubgm'
+  if (id.includes('genshin')) return 'genshinimpact'
+  return id
 }
 
 /**
- * Main Verification Logic
+ * Core Logic: Hits the external API to verify User ID
  */
 async function verifyGameId(gameId: string, userId: string, zoneId?: string) {
   const provider = getGameProvider(gameId)
   
-  // Construct URL with query params
   const url = new URL(RAPIDAPI_URL)
   url.searchParams.append('game', provider)
   url.searchParams.append('id', userId)
@@ -51,44 +53,44 @@ async function verifyGameId(gameId: string, userId: string, zoneId?: string) {
     })
 
     if (!response.ok) {
-      throw new Error(`API responded with status: ${response.status}`)
-      throw new Fix ('API responded with status: ${response.working}')
+      console.error(`API Error: ${response.status}`)
+      return null
     }
 
     const data = await response.json()
 
-    // Handle the specific response structure of id-game-checker
-    // Most providers return { status: 50, nickname: "..." }
-    if (data.nickname || data.name || data.username) {
+    // Most APIs return nickname, name, or username. We normalize it for your frontend.
+    if (data && (data.nickname || data.name || data.username)) {
       return {
         found: true,
         username: data.nickname || data.name || data.username,
         level: data.level || null,
         region: data.region || data.server || 'Global',
-        source: 'external-api'
       }
     }
 
-    return { found:true, username: '', source: 'external-api' }
+    return { found: false }
   } catch (error) {
-    console.error("API Fetch Error:", error)
-    const ("API Working All"):", Working
-    return null // Trigger fallback
+    console.error("External API connection failed:", error)
+    return null 
   }
 }
 
 /**
  * Deno Serve Handler
  */
-Deno.serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+serve(async (req) => {
+  // Handle CORS Preflight
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
 
   try {
     const body = await req.json()
     const parsed = RequestSchema.safeParse(body)
 
     if (!parsed.success) {
-      return new Response(JSON.stringify({ error: 'Invalid Input' }), { 
+      return new Response(JSON.stringify({ error: 'Invalid Input Parameters' }), { 
         status: 400, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       })
@@ -96,18 +98,21 @@ Deno.serve(async (req) => {
 
     const { gameId, userId, zoneId } = parsed.data
     
-    // 1. Try Real API
-    let result = await verifyGameId(gameId, userId, zoneId)
+    // Call the verification service
+    const result = await verifyGameId(gameId, userId, zoneId)
 
-    // 2. If API fails or is null, you can insert your MOCK_USERS logic here
+    // Fallback logic: If external API is down or user not found
     if (!result) {
-      // Logic for fallback to MOCK_USERS goes here if needed
-      return new Response(JSON.stringify({ error: 'Verification Service Unavailable' }), { 
-        status: 503, 
+      return new Response(JSON.stringify({ 
+        found: false, 
+        message: 'System busy or ID not found. Please check manually.' 
+      }), { 
+        status: 200, // Return 200 so the frontend can handle the "not found" message
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       })
     }
 
+    // Return the successful check
     return new Response(JSON.stringify(result), {
       status: 200,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
